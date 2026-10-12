@@ -107,6 +107,7 @@ function Answer({ m }) {
         <span>Knowledge Fabric</span>
       </div>
 
+<<<<<<< HEAD
       {m.contributing_knowledge_bases?.length > 0 && (
         <div className="gpt-answer-kb-list" aria-label="Knowledge bases used">
           <span className="muted small">Answer from:</span>
@@ -121,6 +122,10 @@ function Answer({ m }) {
         <div className="muted small">No relevant evidence was found in: {m.knowledge_base_results.filter((item) => !item.relevant).map((item) => item.knowledge_base).join(", ")}</div>
       )}
 
+=======
+      <div className="bubble bot">{m.answer}</div>
+
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
       <Guardrails items={m.guardrails} />
       {m.retrieval_warnings?.length > 0 && (
         <div className="notice" role="status">
@@ -160,6 +165,7 @@ function Answer({ m }) {
           meta={m.row_count != null ? `${m.row_count} rows` : ""}
         />
       )}
+<<<<<<< HEAD
       {m.knowledge_base_results?.filter((item) => item.relevant && item.cypher).map((item) => (
         <CypherPanel
           key={`cypher-${item.knowledge_base}`}
@@ -168,6 +174,8 @@ function Answer({ m }) {
           meta={item.row_count != null ? `${item.row_count} rows` : ""}
         />
       ))}
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 
       {m.sources?.length > 0 && (
         <div className="card" style={{ padding: "10px 14px" }}>
@@ -221,7 +229,10 @@ export default function Chat() {
 
   const [kbs, setKbs] = useState(null);
   const [kbOpen, setKbOpen] = useState(false);
+<<<<<<< HEAD
   const [selectedKbs, setSelectedKbs] = useState([]);
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
   const [detail, setDetail] = useState(null);
 
   const [conversations, setConversations] = useState([]);
@@ -269,11 +280,15 @@ export default function Chat() {
 
   useEffect(() => {
     api("/kbs")
+<<<<<<< HEAD
       .then((all) => {
         const ready = all.filter((k) => k.status === "ready");
         setKbs(ready);
         setSelectedKbs((selected) => selected.length ? selected.filter((name) => ready.some((k) => k.kb_name === name)) : ready.map((k) => k.kb_name));
       })
+=======
+      .then((all) => setKbs(all.filter((k) => k.status === "ready")))
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
       .catch(setError);
 
     api("/app-info")
@@ -315,6 +330,7 @@ export default function Chat() {
   }, [pending]);
 
   const pickKb = (name) => {
+<<<<<<< HEAD
     setSelectedKbs((selected) => selected.includes(name)
       ? selected.filter((item) => item !== name)
       : [...selected, name]);
@@ -324,6 +340,21 @@ export default function Chat() {
   const selectAllKbs = (checked) => {
     setSelectedKbs(checked ? (kbs || []).map((item) => item.kb_name) : []);
     setError(null);
+=======
+    if (name === kb) {
+      setKbOpen(false);
+      return;
+    }
+
+    generation.current += 1;
+
+    setPending(false);
+    setParams({ kb: name });
+    setConvId(null);
+    setThread([]);
+    setError(null);
+    setKbOpen(false);
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
   };
 
   const newChat = () => {
@@ -352,9 +383,12 @@ export default function Chat() {
       });
 
       setConvId(conv.id);
+<<<<<<< HEAD
       const lastMultiKbTurn = [...(conv.messages || [])].reverse().find((m) => m.knowledge_bases?.length);
       const conversationKbs = lastMultiKbTurn?.knowledge_bases || [conv.kb_name];
       setSelectedKbs(conversationKbs.filter((name) => (kbs || []).some((item) => item.kb_name === name)));
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 
       setThread(
         conv.messages.flatMap((m) => [
@@ -414,12 +448,19 @@ export default function Chat() {
     const mine = generation.current;
 
     try {
+<<<<<<< HEAD
       if (!selectedKbs.length) throw new Error("Select at least one knowledge base.");
       const r = await api("/chat/multi", {
         method: "POST",
         json: {
           question: q,
           kb_names: selectedKbs,
+=======
+      const r = await api(`/kbs/${kb}/chat`, {
+        method: "POST",
+        json: {
+          question: q,
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
           conversation_id: convId,
         },
       });
@@ -498,7 +539,11 @@ export default function Chat() {
                   <span className="gpt-kb-caption">Knowledge base</span>
 
                   <strong>
+<<<<<<< HEAD
                     {selectedKbs.length === (kbs || []).length && selectedKbs.length ? "All knowledge bases" : `${selectedKbs.length} selected`}
+=======
+                    {current?.kb_name || "Select a knowledge base"}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                   </strong>
                 </span>
               </span>
@@ -510,6 +555,7 @@ export default function Chat() {
 
             {kbOpen && (
               <div className="gpt-kb-panel">
+<<<<<<< HEAD
                 <div className="gpt-kb-panel-title">Search knowledge bases</div>
                 <label className="gpt-kb-select-all">
                   <input type="checkbox" checked={!!kbs?.length && selectedKbs.length === kbs.length} onChange={(e) => selectAllKbs(e.target.checked)} />
@@ -526,6 +572,43 @@ export default function Chat() {
                       <span className="gpt-kb-option-domain">{k.domain} / {k.sub_domain}</span>
                       <span className="gpt-kb-option-access">{k.role === "owner" ? <span className="badge">Owner</span> : <span className="badge g">User access</span>}</span>
                     </label>
+=======
+                <div className="gpt-kb-panel-title">Knowledge bases</div>
+
+                <div
+                  className="gpt-kb-options"
+                  role="listbox"
+                  aria-label="Knowledge bases"
+                >
+                  {(kbs || []).map((k) => (
+                    <button
+                      key={k.kb_name}
+                      className={`gpt-kb-option${
+                        k.kb_name === kb ? " active" : ""
+                      }`}
+                      onClick={() => pickKb(k.kb_name)}
+                      role="option"
+                      aria-selected={k.kb_name === kb}
+                    >
+                      <div className="gpt-kb-option-main">
+                        <span className="gpt-kb-option-name">{k.kb_name}</span>
+
+                        <TypeBadge type={k.kb_type} />
+                      </div>
+
+                      <span className="gpt-kb-option-domain">
+                        {k.domain} / {k.sub_domain}
+                      </span>
+
+                      <span className="gpt-kb-option-access">
+                        {k.role === "owner" ? (
+                          <span className="badge">Owner</span>
+                        ) : (
+                          <span className="badge g">User access</span>
+                        )}
+                      </span>
+                    </button>
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                   ))}
 
                   {kbs && kbs.length === 0 && (
@@ -661,6 +744,7 @@ export default function Chat() {
                 <div className="chat-title-row">
                   <span className="chat-title-dot" />
 
+<<<<<<< HEAD
                   <div className="chat-title">Chat</div>
                 </div>
                 <div className="gpt-selected-kbs" aria-label="Selected knowledge bases" style={{ marginTop: 8 }}>
@@ -668,6 +752,11 @@ export default function Chat() {
                   {selectedKbs.length > 0
                     ? selectedKbs.map((name) => <span className="chip" key={name}>{name}</span>)
                     : <span className="muted small">None selected</span>}
+=======
+                  <div className="chat-title">{kb}</div>
+
+                  <TypeBadge type={current.kb_type} />
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                 </div>
 
                 {/* Graph Stats */}
@@ -709,12 +798,47 @@ export default function Chat() {
                   </div>
                 )}
 
+<<<<<<< HEAD
                 {/* Keep the chat header focused on the chat view. */}
                 {stats && current.kb_type === "rag" && (
                   <div className="muted small">Chat</div>
                 )}
               </div>
 
+=======
+                {/* RAG Stats */}
+                {stats && current.kb_type === "rag" && (
+                  <div className="stats-overview">
+                    <div className="stat-card">
+                      <span className="stat-icon">▤</span>
+
+                      <div>
+                        <strong>{stats.documents}</strong> documents
+                      </div>
+                    </div>
+
+                    <div className="stat-card">
+                      <span className="stat-icon relation">▦</span>
+
+                      <div>
+                        <strong>{stats.chunks}</strong> chunks
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn sec sm"
+                style={{
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                }}
+                onClick={() => navigate(`/add-data?kb=${kb}`)}
+              >
+                Add data
+              </button>
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
             </div>
 
             {/* Messages */}
@@ -733,11 +857,23 @@ export default function Chat() {
                 <div className="chat-empty">
                   <div className="chat-empty-icon">✦</div>
 
+<<<<<<< HEAD
                   <strong>Explore your selected knowledge bases</strong>
 
                   <span className="chat-empty-kb">{selectedKbs.length ? selectedKbs.join(", ") : "No knowledge bases selected"}</span>
 
                   <span className="muted">I’ll search all selected knowledge bases, combine relevant evidence, and show which knowledge bases contributed to the answer.</span>
+=======
+                  <strong>Explore your knowledge base</strong>
+
+                  <span className="chat-empty-kb">{kb}</span>
+
+                  <span className="muted">
+                    {current.kb_type === "graph"
+                      ? "I’ll find the answer in your graph and show the Cypher and path used."
+                      : "I’ll search your documents and cite the passages used."}
+                  </span>
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                 </div>
               )}
 
@@ -754,7 +890,11 @@ export default function Chat() {
               )}
 
               {pending && (
+<<<<<<< HEAD
                 <QueryProgress type="hybrid" step={queryStep} />
+=======
+                <QueryProgress type={current.kb_type} step={queryStep} />
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
               )}
 
               <ErrorBox error={error} />
@@ -770,12 +910,15 @@ export default function Chat() {
                 padding: "0 32px 24px",
               }}
             >
+<<<<<<< HEAD
               {selectedKbs.length > 0 && (
                 <div className="gpt-selected-kbs" aria-label="Selected knowledge bases">
                   <span className="muted small">Searching:</span>
                   {selectedKbs.map((name) => <span className="chip" key={name}>{name}</span>)}
                 </div>
               )}
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
               <div
                 className="card chat-composer"
                 style={{
@@ -792,7 +935,11 @@ export default function Chat() {
                   }}
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
+<<<<<<< HEAD
                   placeholder={selectedKbs.length ? `Ask across ${selectedKbs.length} selected knowledge base${selectedKbs.length === 1 ? "" : "s"}` : "Select a knowledge base to start"}
+=======
+                  placeholder={`Ask about ${kb}`}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                   aria-label="Question"
                   maxLength={2000}
                 />

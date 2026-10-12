@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 python -m app.cli eval-ragas --kb ITSM_RAG --testset eval\testsets\ITSM_RAGAS_20_Questions.csv
+=======
+python -m app.cli eval-ragas --kb 
+ITSM_Dataset_800_Rows_V2_kg
+ --testset eval\testsets\ITSM_RAGAS_20.csv
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 
 python -m app.cli eval-ragas --kb Knowledge_Fabric_Hybrid_RAG_Test_Document_rag12 --testset eval\testsets\Complex_30.csv
 

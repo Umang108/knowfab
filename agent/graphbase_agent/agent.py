@@ -12,12 +12,16 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 
+<<<<<<< HEAD
 try:
     from graphbase_agent.keycloak import KeycloakAuth, KeycloakSession
 except ModuleNotFoundError as exc:
     if exc.name != "graphbase_agent":
         raise
     from keycloak import KeycloakAuth, KeycloakSession
+=======
+from graphbase_agent.keycloak import KeycloakAuth, KeycloakSession
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 
 SYSTEM_PROMPT = """You are the TCS Knowledge Fabric assistant. You answer questions using the user's knowledge
 bases, through the tools provided, and nothing else.

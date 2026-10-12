@@ -579,6 +579,7 @@ class ChatBody(BaseModel):
     session_id: str | None = None
 
 
+<<<<<<< HEAD
 
 
 class MultiChatBody(BaseModel):
@@ -670,6 +671,8 @@ def chat_multiple_kbs(body: MultiChatBody, user: CurrentUser = Depends(current_u
     return {"conversation_id": conv["id"], "title": conv["title"], **result}
 
 
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 @router.post("/kbs/{kb_name}/chat")
 def chat_with_kb(kb_name: str, body: ChatBody, user: CurrentUser = Depends(current_user)):
     cat = kb.require_access(user, kb_name)

@@ -49,12 +49,17 @@ class KeycloakSession:
         scope: str = "openid",
         verify: bool | str = True,
         token_cache: Path | None = None,
+<<<<<<< HEAD
         internal_url: str | None = None,
     ):
         self.issuer = f"{keycloak_url.rstrip('/')}/realms/{realm}"
         internal_base = (internal_url or keycloak_url).rstrip("/")
         self.metadata_url = f"{internal_base}/realms/{realm}/.well-known/openid-configuration"
         self.internal_issuer = f"{internal_base}/realms/{realm}"
+=======
+    ):
+        self.issuer = f"{keycloak_url.rstrip('/')}/realms/{realm}"
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
         self.client_id, self.client_secret, self.scope = client_id, client_secret, scope
         self.verify = verify
         self.token_cache = token_cache
@@ -69,7 +74,11 @@ class KeycloakSession:
     @property
     def endpoints(self) -> dict:
         if self._endpoints is None:
+<<<<<<< HEAD
             r = httpx.get(self.metadata_url, verify=self.verify, timeout=15)
+=======
+            r = httpx.get(f"{self.issuer}/.well-known/openid-configuration", verify=self.verify, timeout=15)
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
             if r.status_code != 200:
                 raise LoginError(f"Keycloak realm not found at {self.issuer} (HTTP {r.status_code})")
             self._endpoints = r.json()
@@ -147,6 +156,7 @@ class KeycloakSession:
     def signed_in(self) -> bool:
         return bool(self._tokens.get("access_token"))
 
+<<<<<<< HEAD
     def restore_tokens(self, tokens: dict, expires_at: float) -> None:
         """Restore server-side tokens for a web session."""
         self._tokens = dict(tokens)
@@ -161,6 +171,8 @@ class KeycloakSession:
     def expires_at(self) -> float:
         return self._expires_at
 
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     def refresh(self) -> None:
         refresh_token = self._tokens.get("refresh_token")
         if not refresh_token:
@@ -188,10 +200,14 @@ class KeycloakSession:
             return self._tokens["access_token"]
 
     def logout(self) -> None:
+<<<<<<< HEAD
         try:
             end = (self._endpoints or self.endpoints).get("end_session_endpoint")
         except (httpx.HTTPError, LoginError):
             end = None
+=======
+        end = (self._endpoints or {}).get("end_session_endpoint")
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
         if end and self._tokens.get("refresh_token"):
             with contextlib.suppress(httpx.HTTPError):  # signing out locally still works
                 httpx.post(end, data={**self._client_params(), "refresh_token": self._tokens["refresh_token"]},

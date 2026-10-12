@@ -3,6 +3,7 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+<<<<<<< HEAD
 name = "annotated-doc"
 version = "0.0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -12,6 +13,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -277,6 +280,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -286,6 +290,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "cryptography"
 version = "50.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -358,6 +364,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "fastapi"
 version = "0.142.2"
 source = { registry = "https://pypi.org/simple" }
@@ -375,13 +382,18 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "graphbase-agent"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "anyio" },
+<<<<<<< HEAD
     { name = "cryptography" },
     { name = "fastapi" },
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     { name = "httpx" },
     { name = "langchain-core" },
     { name = "langchain-mcp-adapters" },
@@ -389,16 +401,22 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "mcp" },
+<<<<<<< HEAD
     { name = "psycopg", extra = ["binary"] },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "uvicorn", extra = ["standard"] },
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "anyio", specifier = ">=4.5" },
+<<<<<<< HEAD
     { name = "cryptography", specifier = ">=44.0" },
     { name = "fastapi", specifier = "==0.142.2" },
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     { name = "httpx", specifier = "==0.28.1" },
     { name = "langchain-core", specifier = "==1.6.6" },
     { name = "langchain-mcp-adapters", specifier = "==0.3.2" },
@@ -406,9 +424,12 @@ requires-dist = [
     { name = "langchain-openai", specifier = "==1.6.6" },
     { name = "langgraph", specifier = "==1.2.12" },
     { name = "mcp", specifier = "==1.27.0" },
+<<<<<<< HEAD
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.34.0" },
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 ]
 
 [[package]]
@@ -447,6 +468,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "httptools"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -533,6 +555,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "httpx"
 version = "0.28.1"
 source = { registry = "https://pypi.org/simple" }
@@ -949,6 +973,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "opentelemetry-api"
 version = "1.45.1"
 source = { registry = "https://pypi.org/simple" }
@@ -961,6 +986,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "orjson"
 version = "3.12.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1061,6 +1088,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "psycopg"
 version = "3.3.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1130,6 +1158,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1721,6 +1751,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "tzdata"
 version = "2026.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1730,6 +1761,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 name = "urllib3"
 version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1806,12 +1839,17 @@ wheels = [
 
 [[package]]
 name = "uvicorn"
+<<<<<<< HEAD
 version = "0.34.0"
+=======
+version = "0.54.0"
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "h11" },
 ]
+<<<<<<< HEAD
 sdist = { url = "https://files.pythonhosted.org/packages/4b/4d/938bd85e5bf2edeec766267a5015ad969730bb91e31b44021dfe8b22df6c/uvicorn-0.34.0.tar.gz", hash = "sha256:404051050cd7e905de2c9a7e61790943440b3416f49cb409f965d9dcd0fa73e9", size = 76568, upload-time = "2024-12-15T13:33:30.42Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl", hash = "sha256:023dc038422502fa28a09c7a30bf2b6991512da7dcdb8fd35fe57cfc154126f4", size = 62315, upload-time = "2024-12-15T13:33:27.467Z" },
@@ -1909,6 +1947,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/25/9d/b9deb52f1e4528ffe44338c5ebab95c32ed79203082da661de50288e130a/watchfiles-1.3.0-cp314-cp314t-win32.whl", hash = "sha256:81c989d7267bfb7b676cd32c83bec97914e396870983cbf493e29415037bff5e", size = 270863, upload-time = "2026-09-21T09:08:46.518Z" },
     { url = "https://files.pythonhosted.org/packages/59/59/8b1881afccbafda06248be4185e28034dd73c80c85e4da24f2cb0c1321eb/watchfiles-1.3.0-cp314-cp314t-win_amd64.whl", hash = "sha256:d754e049006e81a9be49dc78ba7802081cee426e968cbc63ee19e164fa2d0e39", size = 286879, upload-time = "2026-09-21T09:08:47.874Z" },
     { url = "https://files.pythonhosted.org/packages/46/dd/41c12ae9745d5d72f709333287679d71cbba68ad7678fed872207bba94f4/watchfiles-1.3.0-cp314-cp314t-win_arm64.whl", hash = "sha256:a5b631db08fd3032db57ec6a92d1777cd60f88803287e4e941a4858c53aab1e0", size = 276924, upload-time = "2026-09-21T09:08:48.976Z" },
+=======
+sdist = { url = "https://files.pythonhosted.org/packages/da/34/30e9280707135d2cfc589dfff3cb796bd07a3aeb1a3e415ba09dd89d7bb4/uvicorn-0.54.0.tar.gz", hash = "sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620", size = 112283, upload-time = "2026-09-25T06:52:37.601Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/0c/b54a4fdd7f90a3af8b02ebc9ce6712c2c208b7926a2f7bad95c33ebbe943/uvicorn-0.54.0-py3-none-any.whl", hash = "sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf", size = 87427, upload-time = "2026-09-25T06:52:35.829Z" },
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 ]
 
 [[package]]

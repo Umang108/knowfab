@@ -293,6 +293,7 @@ def answer(kb: dict, item: dict, user: str, session: str) -> dict:
     }
 
 
+<<<<<<< HEAD
 
 def answer_multiple(kbs: list[dict], item: dict, user: str, session: str) -> dict:
     """Evaluate the multi-KB retrieval and synthesis behavior used by /api/chat/multi."""
@@ -337,6 +338,8 @@ def answer_multiple(kbs: list[dict], item: dict, user: str, session: str) -> dic
             "trace_id": next((r.get("trace_id") for r in per_kb if r.get("trace_id")), None),
             "answer_error": "; ".join(errors) or None}
 
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
 # ------------------------------------------------------------------ 2. score with RAGAS
 def _inputs(name: str, row: dict) -> tuple[str, dict] | tuple[None, str]:
     """(variant, keyword arguments) for one metric, or (None, why it is skipped)."""
@@ -557,12 +560,17 @@ def run(
     if unknown:
         raise EvalError(f"Unknown metric(s) {', '.join(unknown)}; choose from {', '.join(METRICS)}")
     ragas = _ragas()[0]
+<<<<<<< HEAD
     requested_names = list(dict.fromkeys(part.strip() for part in kb_name.split(",") if part.strip()))
     if not requested_names: raise EvalError("Provide at least one knowledge base name")
     kbs = [_check_kb(name) for name in requested_names]
     kb = kbs[0]
     kb_name = ",".join(item["kb_name"] for item in kbs)
     multi_kb = len(kbs) > 1
+=======
+    kb = _check_kb(kb_name)
+    kb_name = kb["kb_name"]
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     concurrency = concurrency or get_settings().ragas_default_concurrency
     items = load_testset(testset_path)[: limit or None]
     testset = Path(testset_path).name
@@ -570,6 +578,7 @@ def run(
     built = build_metrics(names, model, embed_model)  # fails fast on a bad judge setup, before any answering
     started = dt.datetime.now(dt.UTC)
     stamp = started.strftime("%Y%m%d-%H%M%S")
+<<<<<<< HEAD
     session = f"ragas-{kb_name.replace(',', '-')}-{stamp}"
 
     mode = "multi-KB hybrid chat" if multi_kb else kb["kb_type"]
@@ -577,6 +586,14 @@ def run(
     rows = []
     for n, item in enumerate(items, 1):
         rows.append(answer_multiple(kbs, item, user, session) if multi_kb else answer(kb, item, user, session))
+=======
+    session = f"ragas-{kb_name}-{stamp}"
+
+    echo(f"Evaluating {kb_name} with {len(items)} question(s) from {testset}; judge: {s.llm_provider} / {model}")
+    rows = []
+    for n, item in enumerate(items, 1):
+        rows.append(answer(kb, item, user, session))
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
         echo(f"  answered {n}/{len(items)}: {item['question'][:70]}")
 
     last = [0.0]
@@ -589,12 +606,19 @@ def run(
     asyncio.run(_score_all(rows, built, concurrency, progress))
 
     finished = dt.datetime.now(dt.UTC)
+<<<<<<< HEAD
     folder = Path(out_dir or s.ragas_report_dir) / f"{kb_name.replace(',', '__')}_{stamp}"
     previous = _previous(kb_name, testset)
     summary = {
         "knowledge_base": kb_name,
         "knowledge_bases": [item["kb_name"] for item in kbs],
         "evaluation_type": "multi_kb" if multi_kb else kb["kb_type"],
+=======
+    folder = Path(out_dir or s.ragas_report_dir) / f"{kb_name}_{stamp}"
+    previous = _previous(kb_name, testset)
+    summary = {
+        "knowledge_base": kb_name,
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
         "testset": testset,
         "questions": len(rows),
         "answered": sum(1 for r in rows if not r["answer_error"]),
@@ -616,7 +640,12 @@ def run(
                 "rag": f"TurboQuant {s.turboquant_bits}-bit",
                 "graph": "Neo4j read-only graph",
                 "hybrid": f"Neo4j read-only graph + TurboQuant {s.turboquant_bits}-bit",
+<<<<<<< HEAD
             }[kb["kb_type"]] if not multi_kb else "Selected KBs: " + ", ".join(f"{x['kb_name']} ({x['kb_type']})" for x in kbs),
+=======
+            }[kb["kb_type"]],
+            "evaluation_type": kb["kb_type"],
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
             "guardrail_mask_pii": s.guardrail_mask_pii,
             "guardrail_min_relevance": s.guardrail_min_relevance,
         },

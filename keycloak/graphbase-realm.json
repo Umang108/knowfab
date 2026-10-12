@@ -50,6 +50,7 @@
       "name": "TCS Knowledge Fabric agent",
       "enabled": true,
       "publicClient": true,
+<<<<<<< HEAD
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,
@@ -65,6 +66,11 @@
         "http://localhost:5173",
         "http://127.0.0.1:5173"
       ],
+=======
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
       "attributes": {
         "oauth2.device.authorization.grant.enabled": "true",
         "pkce.code.challenge.method": "S256"

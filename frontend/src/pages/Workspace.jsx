@@ -70,7 +70,19 @@ export default function Workspace() {
   );
 
   const fromSource = mode === "source";
+<<<<<<< HEAD
   const files = fromSource ? [] : [...(graphFile ? [graphFile] : []), ...ragFiles];
+=======
+  const files = fromSource
+    ? []
+    : mode === "graph"
+      ? graphFile
+        ? [graphFile]
+        : []
+      : mode === "rag"
+        ? ragFiles
+        : [...(graphFile ? [graphFile] : []), ...ragFiles];
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
   const kbType = fromSource ? selection?.kbType || "graph" : mode;
   const useSource = () => {
     const sel = initialSelection(sources.kinds, connection);
@@ -88,6 +100,7 @@ export default function Workspace() {
     }));
   };
   const choose = (kind, list) => {
+<<<<<<< HEAD
     setError(null);
     if (kind === "graph") {
       setGraphFile(list[0] || null);
@@ -96,12 +109,21 @@ export default function Workspace() {
       setRagFiles(list);
       setMode(graphFile ? "hybrid" : "rag");
     }
+=======
+    if (mode !== "hybrid") setMode(kind);
+    setError(null);
+    if (kind === "graph") setGraphFile(list[0]);
+    else setRagFiles(list);
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     setForm((f) => ({ ...f, name: f.name || suggestName(list[0], kind) }));
   };
   const reset = () => {
     setGraphFile(null);
     setRagFiles([]);
+<<<<<<< HEAD
     setMode("graph");
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     setForm({ name: "", domain: "", sub: "" });
     setError(null);
     if (fromSource) {
@@ -132,8 +154,12 @@ export default function Workspace() {
       }
       const fd = new FormData();
       fd.append("kb_name", form.name.trim());
+<<<<<<< HEAD
       const createType = graphFile && ragFiles.length ? "hybrid" : graphFile ? "graph" : "rag";
       fd.append("kb_type", createType);
+=======
+      fd.append("kb_type", mode);
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
       fd.append("domain", form.domain.trim());
       fd.append("sub_domain", form.sub.trim());
       files.forEach((f) => fd.append("files", f));
@@ -273,13 +299,21 @@ export default function Workspace() {
       >
         <div className="section">Upload data</div>
         <div
+<<<<<<< HEAD
           className={`card workspace-upload-card workspace-source-card${ragFiles.length ? " active" : ""}`}
+=======
+          className={`card workspace-upload-card workspace-source-card${mode === "rag" || mode === "hybrid" ? " active" : ""}${mode === "graph" ? " disabled" : ""}`}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
           style={{
             padding: 18,
             display: "flex",
             flexDirection: "column",
             gap: 12,
+<<<<<<< HEAD
             border: ragFiles.length ? "2px solid var(--teal)" : undefined,
+=======
+            border: mode === "rag" || mode === "hybrid" ? "2px solid var(--teal)" : undefined,
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
           }}
         >
           <div
@@ -300,6 +334,10 @@ export default function Workspace() {
             accept={RAG_ACCEPT}
             multiple
             title="Drop files here"
+<<<<<<< HEAD
+=======
+            disabled={mode === "graph"}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
             onFiles={(l) => choose("rag", l)}
           />
           <div>
@@ -318,13 +356,21 @@ export default function Workspace() {
           </div>
         </div>
         <div
+<<<<<<< HEAD
           className={`card workspace-upload-card workspace-source-card${graphFile ? " active" : ""}`}
+=======
+          className={`card workspace-upload-card workspace-source-card${mode === "graph" || mode === "hybrid" ? " active" : ""}${mode === "rag" ? " disabled" : ""}`}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
           style={{
             padding: 18,
             display: "flex",
             flexDirection: "column",
             gap: 12,
+<<<<<<< HEAD
             border: graphFile ? "2px solid var(--teal)" : undefined,
+=======
+            border: mode === "graph" || mode === "hybrid" ? "2px solid var(--teal)" : undefined,
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
           }}
         >
           <div
@@ -346,6 +392,10 @@ export default function Workspace() {
           <DropZone
             accept={GRAPH_ACCEPT}
             title="Drop CSV or XLSX here"
+<<<<<<< HEAD
+=======
+            disabled={mode === "rag"}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
             onFiles={(l) => choose("graph", l)}
           />
           {graphFile && (
@@ -364,10 +414,14 @@ export default function Workspace() {
               <button
                 className="btn sec sm"
                 type="button"
+<<<<<<< HEAD
                 onClick={() => {
                 setGraphFile(null);
                 setMode(ragFiles.length ? "rag" : "graph");
               }}
+=======
+                onClick={() => setGraphFile(null)}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                 aria-label={`Remove ${graphFile.name}`}
               >
                 Remove
@@ -477,7 +531,25 @@ export default function Workspace() {
                   ? `Source: ${files.map((f) => f.name).join(", ")}`
                   : "Drop a file in the upload panel or pick a connected system to start"}
             </span>
+<<<<<<< HEAD
             {!fromSource && <span className="muted small">Upload documents, structured data, or both for hybrid chat.</span>}
+=======
+            {!fromSource && (
+              <label className="workspace-mode-select">
+                <span className="sr-only">Knowledge base mode</span>
+                <select
+                  className="inp"
+                  aria-label="Knowledge base mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                >
+                  <option value="graph">Graph only</option>
+                  <option value="rag">Documents only</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </label>
+            )}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
           </div>
           {fromSource && selection && connection && (
             <DatasetPicker
@@ -542,14 +614,24 @@ export default function Workspace() {
                 busy ||
                 (fromSource
                   ? !selection || !datasetsPayload(selection).length
+<<<<<<< HEAD
                   : !files.length)
+=======
+                  : !files.length || (mode === "hybrid" && (!graphFile || !ragFiles.length)))
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
               }
             >
               {busy
                 ? fromSource
                   ? "Starting…"
                   : "Uploading…"
+<<<<<<< HEAD
                 : kbType === "graph"
+=======
+                : kbType === "hybrid"
+                  ? "Create hybrid knowledge base"
+                  : kbType === "graph"
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
                   ? fromSource
                     ? "Pull and extract graph"
                     : "Create and extract graph"

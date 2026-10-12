@@ -4377,6 +4377,7 @@ tr.removed td.strike {
     border: 1px solid #999;
   }
 }
+<<<<<<< HEAD
 
 
 /* Multi-knowledge-base chat selection */
@@ -4398,3 +4399,5 @@ tr.removed td.strike {
 .gpt-answer-kb-list {
   padding: 0 0 6px;
 }
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69

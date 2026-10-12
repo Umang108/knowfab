@@ -20,9 +20,15 @@ def _title(question: str) -> str:
 def create(user: CurrentUser, kb_name: str, question: str) -> dict:
     with get_conn() as conn:
         conv = conn.execute(
+<<<<<<< HEAD
             """INSERT INTO chat_conversations (user_id, kb_name, title, sources, modified_by)
                VALUES (%s, %s, %s, %s::jsonb, %s) RETURNING *""",
             (user.user_id, kb_name, _title(question), json.dumps([]), user.user_id),
+=======
+            """INSERT INTO chat_conversations (user_id, kb_name, title, modified_by)
+               VALUES (%s, %s, %s, %s) RETURNING *""",
+            (user.user_id, kb_name, _title(question), user.user_id),
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
         ).fetchone()
         conn.execute(
             """DELETE FROM chat_conversations WHERE user_id = %s AND id NOT IN (
@@ -59,10 +65,14 @@ def history(conversation_id: int) -> list[dict]:
 
 
 def add_message(user: CurrentUser, conversation_id: int, question: str, result: dict) -> None:
+<<<<<<< HEAD
     details = {k: result.get(k) for k in (
         "kind", "cypher", "path", "rows", "row_count", "sources", "guardrails",
         "knowledge_bases", "contributing_knowledge_bases", "knowledge_base_results", "retrieval_warnings",
     )}
+=======
+    details = {k: result.get(k) for k in ("kind", "cypher", "path", "rows", "row_count", "sources", "guardrails")}
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     with get_conn() as conn:
         conn.execute(
             """INSERT INTO chat_messages (conversation_id, question, answer, details, modified_by)

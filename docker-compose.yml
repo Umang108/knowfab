@@ -132,6 +132,7 @@ services:
       backend:
         condition: service_started
 
+<<<<<<< HEAD
   agent-ui:
     build:
       context: .
@@ -152,6 +153,8 @@ services:
       mcp:
         condition: service_started
 
+=======
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
   frontend:
     build: ./frontend
     environment:

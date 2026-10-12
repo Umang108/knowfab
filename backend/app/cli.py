@@ -77,9 +77,15 @@ def main(argv=None):
     ev = sub.add_parser(
         "eval-ragas",
         aliases=["eval-rag", "eval-graph", "eval-kb"],
+<<<<<<< HEAD
         help="RAGAS evaluation of RAG, graph, hybrid, or comma-separated selected knowledge bases (app/eval_rag.py)",
     )
     ev.add_argument("--kb", required=True, help="One KB name, a hybrid KB, or comma-separated selected KB names")
+=======
+        help="RAGAS evaluation of a TurboQuant RAG or graph knowledge base (app/eval_rag.py)",
+    )
+    ev.add_argument("--kb", required=True, help="RAG or graph knowledge base to evaluate")
+>>>>>>> 63d289f4c0303be6dda3e86b96429889708d4d69
     ev.add_argument("--testset", required=True, help="CSV / JSONL / JSON with question and reference columns")
     ev.add_argument("--metrics", help="comma-separated; default: all (" + ", ".join(EVAL_METRICS) + ")")
     ev.add_argument("--out", help="report folder (default RAGAS_REPORT_DIR, backend/reports/ragas)")
