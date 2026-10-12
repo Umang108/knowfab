@@ -1,0 +1,190 @@
+{
+  "realm": "graphbase",
+  "enabled": true,
+  "displayName": "TCS Knowledge Fabric (local test)",
+  "accessTokenLifespan": 1800,
+  "clients": [
+    {
+      "clientId": "graphbase-app",
+      "name": "TCS Knowledge Fabric",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*",
+        "http://localhost:8006/*",
+        "http://127.0.0.1:8006/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8006",
+        "http://127.0.0.1:8006"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://127.0.0.1:5173/*##http://localhost:8006/*##http://127.0.0.1:8006/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "graphbase-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "graphbase-app",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "graphbase-mcp",
+      "name": "TCS Knowledge Fabric MCP server (token audience only)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "change-me-not-used-for-login",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false
+    },
+    {
+      "clientId": "graphbase-agent",
+      "name": "TCS Knowledge Fabric agent",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:8005/auth/callback",
+        "http://127.0.0.1:8005/auth/callback",
+        "http://localhost:8006/auth/callback",
+        "http://127.0.0.1:8006/auth/callback",
+        "http://localhost:8081/auth/callback",
+        "http://127.0.0.1:8081/auth/callback",
+        "http://localhost:5173/auth/callback",
+        "http://127.0.0.1:5173/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8005",
+        "http://127.0.0.1:8005",
+        "http://localhost:8006",
+        "http://127.0.0.1:8006",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+      ],
+      "attributes": {
+        "oauth2.device.authorization.grant.enabled": "true",
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8005/*##http://127.0.0.1:8005/*##http://localhost:8006/*##http://127.0.0.1:8006/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "graphbase-mcp-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "graphbase-mcp",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "priya.nair",
+      "firstName": "Priya",
+      "lastName": "Nair",
+      "email": "priya.nair@graphbase-retail.example",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "arjun.mehta",
+      "firstName": "Arjun",
+      "lastName": "Mehta",
+      "email": "arjun.mehta@graphbase-retail.example",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "sneha.iyer",
+      "firstName": "Sneha",
+      "lastName": "Iyer",
+      "email": "sneha.iyer@graphbase-retail.example",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "karthik.r",
+      "firstName": "Karthik",
+      "lastName": "R",
+      "email": "karthik.r@graphbase-retail.example",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "meera.s",
+      "firstName": "Meera",
+      "lastName": "S",
+      "email": "meera.s@graphbase-retail.example",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "rohan.d",
+      "firstName": "Rohan",
+      "lastName": "D",
+      "email": "rohan.d@graphbase-retail.example",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

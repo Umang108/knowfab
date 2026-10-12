@@ -1,0 +1,6 @@
+python -m app.cli eval-ragas --kb ITSM_RAG --testset eval\testsets\ITSM_RAGAS_20_Questions.csv
+
+python -m app.cli eval-ragas --kb Knowledge_Fabric_Hybrid_RAG_Test_Document_rag12 --testset eval\testsets\Complex_30.csv
+
+python -m app.cli eval-ragas --kb northstar_rag_test_handbook_10_pages_rag --testset eval\testsets\northstar_ragas_evaluation.csv
+
