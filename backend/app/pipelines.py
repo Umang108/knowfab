@@ -10,7 +10,11 @@ from app.observability import observe_workflow
 from app.tabular import read_table_file
 
 EXTRACT_STEPS = extraction.STEPS
-BUILD_STEPS = ["Validate rows against the approved schema", "Create nodes and relationships", "Verify graph"]
+BUILD_STEPS = [
+    "Connect to Neo4j and validate rows against the approved schema",
+    "Create nodes and relationships",
+    "Verify graph",
+]
 ADD_GRAPH_STEPS = ["Match file to the existing schema", "Validate rows", "Write to the graph"]
 RAG_STEPS = ["Read documents", "Chunk text", "Embed and store in TurboQuant index", "LLM scans for PII"]
 
@@ -132,14 +136,18 @@ def graph_extract(job_id: int, kb_name: str, file_path: str, file_name: str) -> 
 
 # ------------------------------------------------------------------ graph: build after Submit
 def graph_build(job_id: int, kb_name: str, user_id: str) -> None:
-    cat = kb.get_catalog(kb_name)
-    schema = cat["approved_schema"]
-    store = GraphStore(kb_name)
-    run_id = start_run(kb_name, "initial_build", schema["source_file"], user_id, job_id)
+    run_id = None
     try:
-        jobs.step(job_id, 0, "running")
+        cat = kb.get_catalog(kb_name)
+        schema = cat["approved_schema"]
+        store = GraphStore(kb_name)
+        run_id = start_run(kb_name, "initial_build", schema["source_file"], user_id, job_id)
+        jobs.step(job_id, 0, "running", "Checking Neo4j connection")
+        store.ensure_storage()
+        store.read_internal("RETURN 1 AS connected")
         sheets = read_table_file(schema["source_path"], schema["source_file"])
         plan = loader.plan_load(schema, sheets, loader.existing_keys_for(store, schema))
+        _require_row_entities(plan, schema)
         jobs.step(job_id, 0, "done", f"{plan.rows_loaded:,} rows accepted, {len(plan.rejected)} rejected")
         jobs.step(job_id, 1, "running")
         totals = loader.execute_plan(
@@ -169,10 +177,33 @@ def graph_build(job_id: int, kb_name: str, user_id: str) -> None:
             rejected_report=plan.rejected,
             summary=_summary(plan, totals, initial=True),
         )
-        kb.set_status(kb_name, "ready", None)
+        cat = kb.get_catalog(kb_name)
+        if cat["kb_type"] == "hybrid":
+            _hybrid_maybe_set_ready(kb_name)
+        else:
+            kb.set_status(kb_name, "ready", None)
     except Exception as exc:
-        finish_run(run_id, "failed", summary=str(exc)[:500])
+        if run_id is not None:
+            finish_run(run_id, "failed", summary=str(exc)[:500])
         raise
+
+
+def _require_row_entities(plan: loader.LoadPlan, schema: dict) -> None:
+    """Do not report a usable graph if a matched row-entity sheet loaded no entities at all."""
+    matched_sheets = {match.schema_sheet for match in plan.matches if match.file_sheet.rows}
+    missing = [
+        node["label"]
+        for node in schema["nodes"]
+        if node.get("role", "row") == "row"
+        and node["sheet"] in matched_sheets
+        and not plan.node_rows.get(node["label"])
+    ]
+    if missing:
+        labels = ", ".join(missing)
+        raise loader.LoadError(
+            f"No rows were accepted for row entity type(s): {labels}. The graph was not built; "
+            "review the required relationship endpoints and node keys in the approved schema."
+        )
 
 
 def _summary(plan, totals, initial=False) -> str:
@@ -281,9 +312,9 @@ def rag_ingest(
 ) -> None:
     """files: [(path, original name)]. Each file gets its own pipeline run (upload chip status)."""
     with observe_workflow("Embedding", {"files": [name for _, name in files], "knowledge_base": kb_name}):
+        jobs.step(job_id, 0, "running")
         runs = {name: start_run(kb_name, run_type, name, user_id, job_id) for _, name in files}
         parsed, failures = {}, []
-        jobs.step(job_id, 0, "running")
         for path, name in files:
             try:
                 parsed[name] = rag.extract_text(Path(path), name)
@@ -337,5 +368,87 @@ def rag_ingest(
                 kb.set_status(kb_name, "failed", "; ".join(failures) or "No readable documents")
                 raise rag.DocumentError("; ".join(failures) or "No readable documents")
             kb.set_status(kb_name, "ready", "; ".join(failures) or None)
+        elif run_type == "hybrid_rag_ingest":
+            _hybrid_maybe_set_ready(kb_name, documents_finished=True)
+            if failures and not any(chunks.values()):
+                raise rag.DocumentError("; ".join(failures))
         if failures and not any(chunks.values()):
             raise rag.DocumentError("; ".join(failures))
+
+
+def _hybrid_maybe_set_ready(kb_name: str, documents_finished: bool = False) -> bool:
+    """A hybrid KB is ready once graph build and document ingestion have both reached a terminal point."""
+    with get_conn() as conn:
+        graph = conn.execute(
+            """SELECT 1 FROM pipeline_runs
+               WHERE kb_name = %s AND run_type = 'initial_build' AND status = 'completed' LIMIT 1""",
+            (kb_name,),
+        ).fetchone()
+        document_job = conn.execute(
+            """SELECT status FROM jobs
+               WHERE kb_name = %s AND job_type IN ('hybrid_ingest', 'hybrid_rag_ingest')
+               ORDER BY id DESC LIMIT 1""",
+            (kb_name,),
+        ).fetchone()
+        failures = conn.execute(
+            """SELECT source_file, summary FROM pipeline_runs
+               WHERE kb_name = %s AND run_type = 'hybrid_rag_ingest' AND status <> 'completed'
+               ORDER BY id""",
+            (kb_name,),
+        ).fetchall()
+    if not graph or not document_job:
+        return False
+    terminal = document_job["status"] in ("succeeded", "failed", "cancelled")
+    if not (documents_finished or terminal):
+        return False
+    detail = None
+    if failures:
+        detail = "Some documents could not be indexed: " + "; ".join(
+            f"{r['source_file']}: {r['summary'] or 'indexing failed'}" for r in failures
+        )
+        detail = detail[:500]
+    kb.set_status(kb_name, "ready", detail)
+    return True
+
+
+HYBRID_CREATE_STEPS = RAG_STEPS + EXTRACT_STEPS
+
+
+def hybrid_ingest(
+    job_id: int,
+    kb_name: str,
+    document_files: list[tuple[str, str]],
+    graph_path: str,
+    graph_name: str,
+    user_id: str,
+) -> None:
+    """Index documents first, then extract the graph using the existing pipelines."""
+    from app.jobs import steps_after
+
+    with steps_after(job_id, 0, 0, 45):
+        rag_ingest(job_id, kb_name, document_files, user_id, "hybrid_rag_ingest")
+    with steps_after(job_id, len(RAG_STEPS), 45, 100):
+        graph_extract(job_id, kb_name, graph_path, graph_name)
+
+
+HYBRID_ADD_STEPS = ADD_GRAPH_STEPS + RAG_STEPS
+
+
+def hybrid_add_data(
+    job_id: int,
+    kb_name: str,
+    graph_file: tuple[str, str] | None,
+    document_files: list[tuple[str, str]],
+    user_id: str,
+    merge_existing: bool,
+    skip_invalid: bool,
+) -> None:
+    """Run the existing graph and document add-data pipelines under one progress job."""
+    from app.jobs import steps_after
+
+    if graph_file:
+        with steps_after(job_id, 0):
+            graph_add_data(job_id, kb_name, *graph_file, user_id, merge_existing, skip_invalid)
+    if document_files:
+        with steps_after(job_id, len(ADD_GRAPH_STEPS) if graph_file else 0):
+            rag_ingest(job_id, kb_name, document_files, user_id, "add_data")

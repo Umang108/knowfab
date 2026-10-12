@@ -2097,23 +2097,6 @@ tr.removed td.strike {
   box-shadow: 0 5px 16px rgba(11, 107, 95, 0.08);
 }
 
-.workspace-source-card.active::before {
-  content: "SELECTED";
-
-  position: absolute;
-
-  top: 10px;
-  right: 12px;
-
-  color: var(--teal);
-
-  font-size: 9px;
-
-  font-weight: 700;
-
-  letter-spacing: 0.08em;
-}
-
 .workspace-sidebar > .section {
   margin-bottom: -2px;
 }
@@ -2136,6 +2119,40 @@ tr.removed td.strike {
   min-height: 70px;
 }
 
+.workspace-upload-card.disabled {
+  opacity: 0.58;
+}
+
+.workspace-upload-card .drop.disabled {
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.workspace-create-source-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workspace-create-source {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-mode-select {
+  flex: 0 0 180px;
+  margin-left: auto;
+}
+
+.workspace-mode-select .inp {
+  height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .workspace-upload-card .muted {
   font-size: 12px !important;
 
@@ -2144,6 +2161,22 @@ tr.removed td.strike {
 
 .workspace-upload-card .file {
   padding: 6px 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.workspace-upload-file-name {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-upload-card .file > .muted,
+.workspace-upload-card .file > .badge {
+  flex: 0 0 auto;
 }
 
 .workspace-upload-card .btn.sec.sm {

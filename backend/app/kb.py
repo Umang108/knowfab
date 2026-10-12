@@ -48,7 +48,12 @@ def list_for_user(user_id: str) -> list[dict]:
         return conn.execute(
             """SELECT kb.kb_name, kb.kb_type, kb.domain, kb.sub_domain, kb.access AS role,
                       c.status, c.status_detail, c.owner_id, c.created_at, c.updated_at,
-                      (SELECT j.id FROM jobs j WHERE j.kb_name = c.kb_name ORDER BY j.id DESC LIMIT 1) AS last_job_id
+                      (SELECT j.id FROM jobs j WHERE j.kb_name = c.kb_name
+                       AND (c.kb_type <> 'hybrid'
+                            OR j.job_type IN ('graph_extract', 'graph_build', 'hybrid_ingest'))
+                       ORDER BY j.id DESC LIMIT 1) AS last_job_id,
+                      (SELECT j.id FROM jobs j WHERE j.kb_name = c.kb_name AND j.job_type = 'hybrid_rag_ingest'
+                       ORDER BY j.id DESC LIMIT 1) AS last_rag_job_id
                FROM knowledge_bases kb JOIN kb_catalog c ON c.kb_name = kb.kb_name
                JOIN kb_access a ON a.kb_name = kb.kb_name AND a.user_id = kb.user_id AND a.revoked_at IS NULL
                WHERE kb.user_id = %s ORDER BY c.created_at DESC""",
@@ -80,7 +85,7 @@ def create(user: CurrentUser, kb_name: str, kb_type: str, domain: str, sub_domai
     import psycopg
 
     validate_name(kb_name)
-    status = "extracting" if kb_type == "graph" else "ingesting"
+    status = "ingesting" if kb_type == "rag" else "extracting"
     try:
         with get_conn() as conn:
             conn.execute(
@@ -103,8 +108,10 @@ def create(user: CurrentUser, kb_name: str, kb_type: str, domain: str, sub_domai
         raise HTTPException(
             409, f"A knowledge base named '{kb_name}' already exists (names are not case-sensitive)"
         ) from None
-    except psycopg.errors.CheckViolation:
-        raise HTTPException(422, NAME_RULE) from None
+    except psycopg.errors.CheckViolation as exc:
+        if exc.diag.constraint_name == "kb_catalog_kb_name_check":
+            raise HTTPException(422, NAME_RULE) from None
+        raise
     return get_catalog(kb_name)
 
 

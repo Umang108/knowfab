@@ -10,13 +10,19 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
+from app.config import get_settings
 from app.db import get_conn
 from app.observability import trace_context
 
 log = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="job")
 # job type -> traced operation (app.observability.WORKFLOW_NAMES), when the caller doesn't name one
-_TRACE_OPERATION = {"graph_extract": "kg_extraction", "graph_build": "kg_build", "rag_ingest": "rag_ingest"}
+_TRACE_OPERATION = {
+    "graph_extract": "kg_extraction",
+    "graph_build": "kg_build",
+    "rag_ingest": "rag_ingest",
+    "hybrid_ingest": "hybrid_ingest",
+}
 _local = threading.local()
 
 
@@ -46,20 +52,37 @@ def get(job_id: int) -> dict | None:
 
 
 @contextmanager
-def steps_after(job_id: int, offset: int):
+def steps_after(
+    job_id: int,
+    offset: int,
+    progress_start: float | None = None,
+    progress_end: float | None = None,
+):
     """Run a pipeline whose step numbers start at 0 after `offset` steps of its own (e.g. a connector's
     "Fetch from ServiceNow" step before the usual extraction steps). Jobs run on one thread each."""
     offsets = getattr(_local, "offsets", {})
+    ranges = getattr(_local, "progress_ranges", {})
     _local.offsets = {**offsets, job_id: offset}
+    _local.progress_ranges = {
+        **ranges,
+        job_id: (progress_start, progress_end)
+        if progress_start is not None and progress_end is not None
+        else None,
+    }
     try:
         yield
     finally:
         _local.offsets = offsets
+        _local.progress_ranges = ranges
 
 
 def step(job_id: int, index: int, status: str, detail: str = "", progress: float | None = None) -> None:
     """Mark step `index` as waiting|running|done|failed; progress defaults to completed steps."""
     index += getattr(_local, "offsets", {}).get(job_id, 0)
+    progress_range = getattr(_local, "progress_ranges", {}).get(job_id)
+    if progress is not None and progress_range:
+        start, end = progress_range
+        progress = start + (end - start) * progress / 100
     with get_conn() as conn:
         job = conn.execute("SELECT steps, status FROM jobs WHERE id = %s FOR UPDATE", (job_id,)).fetchone()
         steps = job["steps"]

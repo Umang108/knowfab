@@ -40,7 +40,14 @@ function Guardrails({ items }) {
 
 function QueryProgress({ type, step }) {
   const stages =
-    type === "graph"
+    type === "hybrid"
+      ? [
+          "Understanding your question",
+          "Searching the graph and documents",
+          "Comparing retrieved evidence",
+          "Preparing one cited answer",
+        ]
+      : type === "graph"
       ? [
           "Understanding your question",
           "Building a scoped Cypher query",
@@ -61,7 +68,9 @@ function QueryProgress({ type, step }) {
 
         <div>
           <strong>
-            {type === "graph"
+            {type === "hybrid"
+              ? "Searching the graph and documents"
+              : type === "graph"
               ? "Working through the graph"
               : "Searching your knowledge base"}
           </strong>
@@ -101,6 +110,11 @@ function Answer({ m }) {
       <div className="bubble bot">{m.answer}</div>
 
       <Guardrails items={m.guardrails} />
+      {m.retrieval_warnings?.length > 0 && (
+        <div className="notice" role="status">
+          Partial retrieval: {m.retrieval_warnings.join(" ")}
+        </div>
+      )}
 
       {m.path?.length > 0 && (
         <div
@@ -646,7 +660,7 @@ export default function Chat() {
                 </div>
 
                 {/* Graph Stats */}
-                {stats && current.kb_type === "graph" && (
+                {stats && ["graph", "hybrid"].includes(current.kb_type) && (
                   <div className="stats-overview">
                     <div className="stat-card">
                       <span className="stat-icon">◆</span>
@@ -675,6 +689,12 @@ export default function Chat() {
                         />
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {stats && current.kb_type === "hybrid" && (
+                  <div className="muted small">
+                    {stats.documents} documents · {stats.chunks} indexed passages
                   </div>
                 )}
 

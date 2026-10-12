@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { CypherPanel, ErrorBox } from "../components/common.jsx";
 
@@ -205,6 +205,8 @@ function Actions({ removed, editing, onEdit, onDelete, onUndo, onSave, onCancel 
 export default function Review() {
   const { kb } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const ragJobId = searchParams.get("ragJobId");
   const [saved, setSaved] = useState(null);      // schema as extracted / last saved
   const [work, setWork] = useState(null);        // working copy
   const [removed, setRemoved] = useState({ nodes: new Set(), rels: new Set() });
@@ -322,7 +324,7 @@ export default function Review() {
     setError(null);
     try {
       const r = await api(`/kbs/${kb}/submit`, { method: "POST", json: { schema: effective.schema } });
-      navigate(`/kbs/${kb}/jobs/${r.job_id}`);
+      navigate(`/kbs/${kb}/jobs/${r.job_id}${ragJobId ? `?ragJobId=${ragJobId}` : ""}`);
     } catch (e) {
       setError(e);
       setBusy(false);
@@ -332,7 +334,7 @@ export default function Review() {
   const reextract = async () => {
     try {
       const r = await api(`/kbs/${kb}/extract`, { method: "POST" });
-      navigate(`/kbs/${kb}/jobs/${r.job_id}`);
+      navigate(`/kbs/${kb}/jobs/${r.job_id}${ragJobId ? `?ragJobId=${ragJobId}` : ""}`);
     } catch (e) {
       setError(e);
     }

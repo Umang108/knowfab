@@ -9,6 +9,7 @@ import datetime as dt
 import io
 import re
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -169,11 +170,23 @@ def _rows_from_csv(data: bytes) -> list[list]:
     if "\x00" in text:
         raise TabularError("The file is not a readable CSV (binary content).")
     sample = text[:20000]
-    try:
-        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
-        delimiter = dialect.delimiter
-    except csv.Error:
-        delimiter = max(",;\t|", key=sample.count)
+    candidates = []
+    for candidate in ",;\t|":
+        parsed = list(csv.reader(io.StringIO(sample, newline=""), delimiter=candidate))
+        widths = [len(row) for row in parsed if any(not is_blank(cell) for cell in row)]
+        if not widths:
+            continue
+        width, count = max(Counter(widths).items(), key=lambda item: (item[1], item[0]))
+        if width > 1:
+            candidates.append((count / len(widths), width, candidate))
+    if candidates:
+        # Sniffer can mistake thousands separators for delimiters; prefer the widest consistent parse.
+        delimiter = max(candidates, key=lambda item: (item[0], item[1]))[2]
+    else:
+        try:
+            delimiter = csv.Sniffer().sniff(sample, delimiters=",;\t|").delimiter
+        except csv.Error:
+            delimiter = max(",;\t|", key=sample.count)
     return [row for row in csv.reader(io.StringIO(text, newline=""), delimiter=delimiter)]
 
 

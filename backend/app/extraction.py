@@ -4,8 +4,9 @@ The LLM makes the modelling decisions (what a row is, which columns identify it,
 entities are embedded, relationship names/direction, PII). Deterministic profiling gives it
 evidence and checks its answers: value overlap finds references between sheets, and a
 functional-dependency test finds line-level columns (e.g. qty on an order line) that belong on
-a relationship rather than on the node. Everything the LLM says is validated; anything unusable
-falls back to a heuristic so extraction always produces an editable draft.
+a relationship rather than on the node. LLM-discovered relationship endpoints must also match
+the referenced node keys in the actual data. Everything the LLM says is validated; anything
+unusable falls back to a heuristic so extraction always produces an editable draft.
 """
 
 import json
@@ -360,6 +361,20 @@ def _discover_llm_links(sheets: list[Sheet], nodes: list[dict], deterministic: l
             source_column = _fix_column(source.get("column"), sheet_map[sheet_name])
             target_column = _fix_column(target.get("column"), sheet_map[sheet_name])
             if not source_column or not target_column:
+                continue
+            source_evidence = _link_evidence(
+                sheet_map[sheet_name], source_column, source_node, sheet_map[source_node["sheet"]]
+            )
+            target_evidence = _link_evidence(
+                sheet_map[sheet_name], target_column, target_node, sheet_map[target_node["sheet"]]
+            )
+            if any(
+                evidence["overlap"] < LINK_OVERLAP
+                and not (
+                    evidence["overlap"] >= 0.35 and evidence["name_match"] and evidence["type_match"]
+                )
+                for evidence in (source_evidence, target_evidence)
+            ):
                 continue
             properties = [
                 column

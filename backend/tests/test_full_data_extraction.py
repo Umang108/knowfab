@@ -62,6 +62,47 @@ def test_full_data_discovery_supports_same_type_edges_and_properties(monkeypatch
     assert found[0]["properties"] == ["weight", "status"]
 
 
+def test_full_data_discovery_rejects_links_without_endpoint_value_evidence(monkeypatch):
+    incidents = make_sheet("Incidents", ["incident_id", "configuration_item"], [
+        {"incident_id": "I1", "configuration_item": "CI-1"},
+    ])
+    items = make_sheet("ConfigurationItems", ["ci_id"], [{"ci_id": "CI-1"}])
+    dictionary = make_sheet("DataDictionary", ["field"], [{"field": "configuration_item"}])
+    nodes = [
+        {"label": "Incident", "sheet": "Incidents", "role": "row", "key": {"column": "incident_id"}},
+        {"label": "ConfigurationItem", "sheet": "ConfigurationItems", "role": "row", "key": {"column": "ci_id"}},
+        {"label": "FieldDefinition", "sheet": "DataDictionary", "role": "row", "key": {"column": "field"}},
+    ]
+    settings = SimpleNamespace(full_sheet_llm_analysis=True, max_llm_rows=10, max_llm_chars=10_000)
+    monkeypatch.setattr(extraction, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        extraction,
+        "ask_json",
+        lambda system, prompt: {
+            "relationships": [
+                {
+                    "sheet": "Incidents",
+                    "from": {"label": "Incident", "column": "incident_id"},
+                    "relationship": "AFFECTS",
+                    "to": {"label": "ConfigurationItem", "column": "configuration_item"},
+                },
+                {
+                    "sheet": "Incidents",
+                    "from": {"label": "Incident", "column": "incident_id"},
+                    "relationship": "DESCRIBED_BY",
+                    "to": {"label": "FieldDefinition", "column": "configuration_item"},
+                },
+            ]
+        },
+    )
+
+    found = extraction._discover_llm_links([incidents, items, dictionary], nodes, [])
+
+    assert len(found) == 1
+    assert found[0]["suggested_type"] == "AFFECTS"
+    assert found[0]["b"] == "ConfigurationItem"
+
+
 def test_duplicate_relationship_candidates_merge_evidence_and_properties():
     base = {
         "sheet": "Connections",

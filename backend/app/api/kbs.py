@@ -82,32 +82,75 @@ def create_kb(
     user: CurrentUser = Depends(current_user),
 ):
     kb_name, domain, sub_domain = kb_name.strip(), domain.strip(), sub_domain.strip()
-    if kb_type not in ("graph", "rag"):
-        raise HTTPException(422, "kb_type must be graph or rag")
+    if kb_type not in ("graph", "rag", "hybrid"):
+        raise HTTPException(422, "kb_type must be graph, rag or hybrid")
     if not domain or not sub_domain:
         raise HTTPException(422, "Domain and sub-domain are required")
+    graph_files = [f for f in files if (f.filename or "").lower().endswith(GRAPH_EXT)]
+    document_files = [f for f in files if (f.filename or "").lower().endswith(rag.SUPPORTED)]
     if kb_type == "graph" and len(files) != 1:
         raise HTTPException(422, "A knowledge graph is created from exactly one CSV or XLSX file")
-    for f in files:  # check types before creating anything
-        allowed = GRAPH_EXT if kb_type == "graph" else rag.SUPPORTED
-        if not (f.filename or "").lower().endswith(allowed):
-            raise HTTPException(415, f"{f.filename}: unsupported file type (allowed: {', '.join(allowed)})")
-    storage = GraphStore(kb_name).storage_ref if kb_type == "graph" else f"turboquant:{kb_name}"
+    for f in files:
+        if f not in graph_files and f not in document_files:
+            raise HTTPException(
+                415,
+                f"{f.filename}: unsupported file type (allowed: {', '.join((*GRAPH_EXT, *rag.SUPPORTED))})",
+            )
+    if kb_type == "graph" and len(graph_files) != 1:
+        raise HTTPException(415, f"A knowledge graph accepts CSV or XLSX files only ({', '.join(GRAPH_EXT)})")
+    if kb_type == "rag" and (not document_files or len(document_files) != len(files)):
+        raise HTTPException(415, f"A RAG knowledge base accepts documents only ({', '.join(rag.SUPPORTED)})")
+    if kb_type == "hybrid" and (not graph_files or not document_files):
+        raise HTTPException(422, "A hybrid knowledge base requires at least one CSV/XLSX file and one document")
+    if kb_type == "hybrid" and len(graph_files) != 1:
+        raise HTTPException(422, "A hybrid knowledge base accepts exactly one CSV or XLSX file")
+    if kb_type == "graph":
+        storage = GraphStore(kb_name).storage_ref
+    elif kb_type == "rag":
+        storage = f"turboquant:{kb_name}"
+    else:
+        storage = f"graph:{GraphStore(kb_name).storage_ref};turboquant:{kb_name}"
     kb.create(user, kb_name, kb_type, domain, sub_domain, storage)
-    saved = [_save_upload(kb_name, f, GRAPH_EXT if kb_type == "graph" else rag.SUPPORTED) for f in files]
+    saved_graph = [_save_upload(kb_name, f, GRAPH_EXT) for f in graph_files]
+    saved_docs = [_save_upload(kb_name, f, rag.SUPPORTED) for f in document_files]
     fail = lambda msg: kb.set_status(kb_name, "failed", msg[:500])  # noqa: E731
     if kb_type == "graph":
-        path, name = saved[0]
+        path, name = saved_graph[0]
         job_id = jobs.create(kb_name, "graph_extract", pipelines.EXTRACT_STEPS, user.user_id, name)
         jobs.submit(
             job_id, pipelines.graph_extract, kb_name, path, name, on_error=fail,
             user_id=user.user_id, session_id=session_id or user.session_id, operation="kg_extraction",
         )
-    else:
-        job_id = jobs.create(kb_name, "rag_ingest", pipelines.RAG_STEPS, user.user_id, ", ".join(n for _, n in saved))
+    elif kb_type == "rag":
+        job_id = jobs.create(
+            kb_name, "rag_ingest", pipelines.RAG_STEPS, user.user_id, ", ".join(n for _, n in saved_docs)
+        )
         jobs.submit(
-            job_id, pipelines.rag_ingest, kb_name, saved, user.user_id, "rag_ingest",
+            job_id, pipelines.rag_ingest, kb_name, saved_docs, user.user_id, "rag_ingest",
             on_error=fail, user_id=user.user_id, session_id=session_id or user.session_id, operation="rag_ingest",
+        )
+    else:
+        graph_path, graph_name = saved_graph[0]
+        rag_names = ", ".join(n for _, n in saved_docs)
+        job_id = jobs.create(
+            kb_name,
+            "hybrid_ingest",
+            pipelines.HYBRID_CREATE_STEPS,
+            user.user_id,
+            graph_name,
+        )
+        jobs.submit(
+            job_id,
+            pipelines.hybrid_ingest,
+            kb_name,
+            saved_docs,
+            graph_path,
+            graph_name,
+            user.user_id,
+            on_error=fail,
+            user_id=user.user_id,
+            session_id=session_id or user.session_id,
+            operation="hybrid_ingest",
         )
     return {"kb_name": kb_name, "job_id": job_id}
 
@@ -132,7 +175,7 @@ def get_kb(kb_name: str, user: CurrentUser = Depends(current_user)):
             "approved_by",
         )
     }
-    if cat["kb_type"] == "graph" and cat["status"] == "ready":
+    if cat["kb_type"] in ("graph", "hybrid") and cat["status"] == "ready":
         counts = GraphStore(kb_name).counts()
         schema = cat["approved_schema"]
         out["stats"] = {
@@ -143,6 +186,10 @@ def get_kb(kb_name: str, user: CurrentUser = Depends(current_user)):
             "by_label": counts["nodes"],
             "by_type": counts["relationships"],
         }
+        if cat["kb_type"] == "hybrid":
+            docs = rag.documents(kb_name)
+            out["stats"]["documents"] = len(docs)
+            out["stats"]["chunks"] = sum(docs.values())
     elif cat["kb_type"] == "rag":
         docs = rag.documents(kb_name) if cat["status"] in ("ready", "ingesting") else {}
         out["stats"] = {"documents": len(docs), "chunks": sum(docs.values())}
@@ -157,9 +204,9 @@ def delete_kb(kb_name: str, user: CurrentUser = Depends(current_user)):
     cat = kb.require_access(user, kb_name, roles=("owner",))
     if cat["status"] in ("extracting", "building", "ingesting"):
         raise HTTPException(409, "Wait for the current job to finish before deleting this knowledge base")
-    if cat["kb_type"] == "graph":
+    if cat["kb_type"] in ("graph", "hybrid"):
         GraphStore(kb_name).drop()
-    else:
+    if cat["kb_type"] in ("rag", "hybrid"):
         rag.drop_index(kb_name)
     removed = kb.delete(kb_name, user.user_id)
     shutil.rmtree(Path(get_settings().upload_dir) / kb_name, ignore_errors=True)
@@ -173,11 +220,12 @@ def rerun_extraction(
     user: CurrentUser = Depends(current_user),
 ):
     cat = kb.require_access(user, kb_name, roles=("owner",))
-    if cat["kb_type"] != "graph" or cat["status"] not in ("failed", "awaiting_review"):
-        raise HTTPException(409, "Extraction can only be re-run for a graph that is failed or awaiting review")
+    if cat["kb_type"] not in ("graph", "hybrid") or cat["status"] not in ("failed", "awaiting_review"):
+        raise HTTPException(409, "Extraction can only be re-run for a graph or hybrid base awaiting review or failed")
     with get_conn() as conn:
         job = conn.execute(
-            """SELECT source_file FROM jobs WHERE kb_name = %s AND job_type = 'graph_extract'
+            """SELECT job_type, source_file FROM jobs WHERE kb_name = %s
+                              AND job_type IN ('graph_extract', 'hybrid_ingest')
                               ORDER BY id DESC LIMIT 1""",
             (kb_name,),
         ).fetchone()
@@ -185,6 +233,35 @@ def rerun_extraction(
     matches = sorted(folder.glob(f"*_{job['source_file']}")) if job else []
     if not matches:
         raise HTTPException(409, "The original upload is no longer available; create the knowledge base again")
+    if cat["kb_type"] == "hybrid":
+        saved_docs = sorted(
+            (
+                str(path),
+                path.name[9:] if len(path.name) > 9 and path.name[8] == "_" else path.name,
+            )
+            for path in folder.iterdir()
+            if path.is_file() and path.suffix.lower() in rag.SUPPORTED
+        )
+        if not saved_docs:
+            raise HTTPException(409, "The original documents are no longer available; create the knowledge base again")
+        kb.set_status(kb_name, "extracting", None, actor=user.user_id)
+        job_id = jobs.create(
+            kb_name, "hybrid_ingest", pipelines.HYBRID_CREATE_STEPS, user.user_id, job["source_file"]
+        )
+        jobs.submit(
+            job_id,
+            pipelines.hybrid_ingest,
+            kb_name,
+            saved_docs,
+            str(matches[-1]),
+            job["source_file"],
+            user.user_id,
+            on_error=lambda m: kb.set_status(kb_name, "failed", m[:500]),
+            user_id=user.user_id,
+            session_id=session_id or user.session_id,
+            operation="hybrid_ingest",
+        )
+        return {"job_id": job_id}
     kb.set_status(kb_name, "extracting", None, actor=user.user_id)
     job_id = jobs.create(kb_name, "graph_extract", pipelines.EXTRACT_STEPS, user.user_id, job["source_file"])
     jobs.submit(
@@ -221,8 +298,9 @@ def cancel_job(job_id: int, user: CurrentUser = Depends(current_user)):
         raise kb.AccessDenied("Only the owner or the person who started the job can cancel it")
     if not jobs.cancel(job_id, user.user_id):
         raise HTTPException(409, "The job has already finished")
-    if j["job_type"] == "graph_extract":
-        kb.set_status(j["kb_name"], "failed", "Extraction cancelled", actor=user.user_id)
+    if j["job_type"] in ("graph_extract", "hybrid_ingest"):
+        detail = "Hybrid ingestion cancelled" if j["job_type"] == "hybrid_ingest" else "Extraction cancelled"
+        kb.set_status(j["kb_name"], "failed", detail, actor=user.user_id)
     return {"cancelled": True}
 
 
@@ -387,6 +465,8 @@ def check_add_data(kb_name: str, file: UploadFile = File(...), user: CurrentUser
     if cat["kb_type"] == "rag":
         name = Path(file.filename or "").name
         return {"matched": name.lower().endswith(rag.SUPPORTED), "kind": "rag", "file": name}
+    if cat["kb_type"] == "hybrid" and (file.filename or "").lower().endswith(rag.SUPPORTED):
+        return {"matched": True, "kind": "rag", "file": Path(file.filename or "").name}
     path, name = _save_upload(kb_name, file, GRAPH_EXT)
     try:
         return {"kind": "graph", "file": name, **pipelines.check_graph_file(cat["approved_schema"], path, name)}
@@ -413,6 +493,37 @@ def add_data(
         jobs.submit(
             job_id, pipelines.rag_ingest, kb_name, saved, user.user_id, "add_data",
             user_id=user.user_id, session_id=session_id or user.session_id, operation="add_data",
+        )
+        return {"job_id": job_id}
+    if cat["kb_type"] == "hybrid":
+        if not files:
+            raise HTTPException(422, "Upload at least one CSV/XLSX file or document")
+        graph_files = [f for f in files if (f.filename or "").lower().endswith(GRAPH_EXT)]
+        document_files = [f for f in files if (f.filename or "").lower().endswith(rag.SUPPORTED)]
+        if len(graph_files) > 1 or len(graph_files) + len(document_files) != len(files):
+            raise HTTPException(
+                415, f"Upload one CSV/XLSX file and/or documents ({', '.join(rag.SUPPORTED)})"
+            )
+        graph_file = _save_upload(kb_name, graph_files[0], GRAPH_EXT) if graph_files else None
+        if graph_file:
+            try:
+                check = pipelines.check_graph_file(cat["approved_schema"], *graph_file)
+            except TabularError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            if not check["matched"]:
+                raise HTTPException(422, "No sheet in this file matches the knowledge graph's schema")
+        document_files = [_save_upload(kb_name, f, rag.SUPPORTED) for f in document_files]
+        job_id = jobs.create(
+            kb_name,
+            "add_data",
+            (pipelines.ADD_GRAPH_STEPS if graph_file else []) + (pipelines.RAG_STEPS if document_files else []),
+            user.user_id,
+            ", ".join(name for _, name in ([graph_file] if graph_file else []) + document_files),
+        )
+        jobs.submit(
+            job_id, pipelines.hybrid_add_data, kb_name, graph_file, document_files, user.user_id,
+            merge_existing, skip_invalid, user_id=user.user_id,
+            session_id=session_id or user.session_id, operation="add_data",
         )
         return {"job_id": job_id}
     if len(files) != 1:
@@ -486,7 +597,7 @@ def chat_with_kb(kb_name: str, body: ChatBody, user: CurrentUser = Depends(curre
             {k: str(h.get(k, ""))[: settings.chat_history_max_chars] for k in ("question", "answer", "cypher")}
             for h in body.history[-settings.conversation_history_turns :]
         ]
-    operation = "chat" if cat["kb_type"] == "graph" else "rag_chat"
+    operation = {"graph": "chat", "rag": "rag_chat", "hybrid": "hybrid_chat"}[cat["kb_type"]]
     # the conversation is the Langfuse session, so all turns of one chat are grouped
     with trace_context(user.user_id, body.session_id or f"chat-{conv['id']}", operation, kb_name):
         if cat["kb_type"] == "graph":
@@ -494,10 +605,21 @@ def chat_with_kb(kb_name: str, body: ChatBody, user: CurrentUser = Depends(curre
                 "kind": "graph",
                 **chat.graph_answer(GraphStore(kb_name), cat["approved_schema"], cat["approved_at"], question, history),
             }
-        else:
+        elif cat["kb_type"] == "rag":
             try:
                 result = {"kind": "rag", **chat.rag_answer(kb_name, question, history)}
             except rag.ServiceError as exc:
+                raise HTTPException(503, str(exc)) from None
+        else:
+            try:
+                result = {
+                    "kind": "hybrid",
+                    **chat.hybrid_answer(
+                        GraphStore(kb_name), cat["approved_schema"], cat["approved_at"],
+                        kb_name, question, history,
+                    ),
+                }
+            except chat.HybridRetrievalError as exc:
                 raise HTTPException(503, str(exc)) from None
     conversations.add_message(user, conv["id"], question, result)
     return {"conversation_id": conv["id"], "title": conv["title"], **result}

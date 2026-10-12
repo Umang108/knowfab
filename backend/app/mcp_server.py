@@ -39,12 +39,14 @@ from app.observability import flush_langfuse, trace_context
 
 log = logging.getLogger("graphbase.mcp")
 
-INSTRUCTIONS = """TCS Knowledge Fabric knowledge bases: knowledge graphs (Neo4j) built from spreadsheets and RAG stores
-built from documents. You only see the knowledge bases the signed-in user owns or was given access to.
-Start with list_knowledge_bases. For a graph, describe_knowledge_base shows its node types and relationships;
-use ask_knowledge_base for questions in plain language, or query_graph for exact read-only Cypher. For a RAG
-store, use search_documents to read the relevant passages, or ask_knowledge_base for a written answer.
-Properties marked as PII hold personal data: only return them when the user's question needs them."""
+INSTRUCTIONS = """TCS Knowledge Fabric knowledge bases: knowledge graphs (Neo4j) built from spreadsheets, RAG stores
+built from documents, and hybrid knowledge bases that combine both. You only see the knowledge bases the signed-in
+user owns or was given access to. Start with list_knowledge_bases. For a graph, describe_knowledge_base shows its
+node types and relationships; use ask_knowledge_base for questions in plain language, or query_graph for exact
+read-only Cypher. For a RAG store, use search_documents to read relevant passages, or ask_knowledge_base for an
+answer. Hybrid ask_knowledge_base searches both stores and synthesizes one cited answer; query_graph and
+search_documents can also inspect either store directly. Properties marked as PII hold personal data: only return
+them when the user's question needs them."""
 
 
 # ------------------------------------------------------------------ helpers
@@ -68,7 +70,7 @@ def _kb(user: CurrentUser, kb_name: str, kind: str | None = None, ready: bool = 
         cat = kb.require_access(user, kb_name)
     except HTTPException as exc:
         raise ToolError(str(exc.detail)) from None
-    if kind and cat["kb_type"] != kind:
+    if kind and cat["kb_type"] not in (kind, "hybrid"):
         other = "search_documents or ask_knowledge_base" if cat["kb_type"] == "rag" else "query_graph"
         raise ToolError(f"{kb_name} is a {'RAG store' if cat['kb_type'] == 'rag' else 'knowledge graph'}; use {other}")
     if ready and cat["status"] != "ready":
@@ -121,7 +123,7 @@ def list_knowledge_bases(user: CurrentUser) -> dict:
 def describe_knowledge_base(user: CurrentUser, kb_name: str) -> dict:
     cat = _kb(user, kb_name)
     out = {k: cat[k] for k in ("kb_name", "kb_type", "domain", "sub_domain", "status", "role")}
-    if cat["kb_type"] == "graph":
+    if cat["kb_type"] in ("graph", "hybrid"):
         schema = cat["approved_schema"] or cat["draft_schema"]
         if not schema:
             return {**out, "note": "The graph has not been extracted yet."}
@@ -162,7 +164,7 @@ def describe_knowledge_base(user: CurrentUser, kb_name: str) -> dict:
                 out["counts"] = {"nodes": counts["nodes"], "relationships": counts["relationships"]}
             except Exception as exc:  # the schema is still useful without counts
                 log.warning("counts unavailable for %s: %s", kb_name, exc)
-    else:
+    if cat["kb_type"] in ("rag", "hybrid"):
         docs = rag.documents(kb_name) if cat["status"] in ("ready", "ingesting") else {}
         out["documents"] = [{"name": d, "chunks": n} for d, n in sorted(docs.items())]
     return out
@@ -177,6 +179,18 @@ def ask_knowledge_base(user: CurrentUser, kb_name: str, question: str) -> dict:
             "cypher": r["cypher"],
             "rows": r["rows"],
             "row_count": r["row_count"],
+            "guardrails": r.get("guardrails", []),
+        }
+    if cat["kb_type"] == "hybrid":
+        r = chat.hybrid_answer(GraphStore(kb_name), cat["approved_schema"], cat["approved_at"], kb_name, question, [])
+        return {
+            "answer": r["answer"],
+            "cypher": r["cypher"],
+            "rows": r["rows"],
+            "row_count": r["row_count"],
+            "sources": r["sources"],
+            "retrieval_status": r["retrieval_status"],
+            "retrieval_warnings": r["retrieval_warnings"],
             "guardrails": r.get("guardrails", []),
         }
     r = chat.rag_answer(kb_name, question, [])
@@ -236,20 +250,20 @@ def build_server(s: Settings | None = None) -> FastMCP:
     async def _whoami() -> dict:
         return await _call("whoami", whoami)
 
-    @mcp.tool(name="list_knowledge_bases", description="Knowledge bases (graph and RAG) the user can use.")
+    @mcp.tool(name="list_knowledge_bases", description="Graph, RAG, and hybrid knowledge bases the user can use.")
     async def _list() -> dict:
         return await _call("list_knowledge_bases", list_knowledge_bases)
 
     @mcp.tool(
         name="describe_knowledge_base",
-        description="A knowledge graph's node types, relationships and PII properties, or a RAG store's documents.",
+        description="A graph's schema and PII properties, a RAG store's documents, or both for a hybrid base.",
     )
     async def _describe(kb_name: Annotated[str, Field(description="Name from list_knowledge_bases")]) -> dict:
         return await _call("describe_knowledge_base", describe_knowledge_base, kb_name)
 
     @mcp.tool(
         name="ask_knowledge_base",
-        description="Answer a question in plain language from one knowledge base (graph or RAG).",
+        description="Answer from a graph, a RAG store, or both stores in a hybrid knowledge base.",
     )
     async def _ask(
         kb_name: Annotated[str, Field(description="Name from list_knowledge_bases")],
@@ -259,8 +273,8 @@ def build_server(s: Settings | None = None) -> FastMCP:
 
     @mcp.tool(
         name="query_graph",
-        description="Run a read-only Cypher query on a knowledge graph. Use the labels, relationship types and "
-        "properties from describe_knowledge_base. Writes and procedure calls are refused.",
+        description="Run a read-only Cypher query on a graph or hybrid knowledge base. Use the labels, relationship "
+        "types and properties from describe_knowledge_base. Writes and procedure calls are refused.",
     )
     async def _query(
         kb_name: Annotated[str, Field(description="Name of a knowledge graph")],
@@ -269,7 +283,7 @@ def build_server(s: Settings | None = None) -> FastMCP:
     ) -> dict:
         return await _call("query_graph", query_graph, kb_name, cypher, limit)
 
-    @mcp.tool(name="search_documents", description="Semantic search over a RAG store; returns matching passages.")
+    @mcp.tool(name="search_documents", description="Semantic search over a RAG or hybrid store; returns passages.")
     async def _search(
         kb_name: Annotated[str, Field(description="Name of a RAG store")],
         query: Annotated[str, Field(description="What to look for", max_length=2000)],

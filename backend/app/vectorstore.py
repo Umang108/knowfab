@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 import uuid
 from dataclasses import dataclass
@@ -251,6 +252,30 @@ def search(kb_name: str, vector, k: int) -> list[dict]:
             continue
         out.append({**row, "score": round(min(max(score, -1.0), 1.0), 4)})
     return out
+
+
+def search_exact(kb_name: str, identifiers: list[str], k: int) -> list[dict]:
+    """Find chunks containing exact identifier tokens, bypassing approximate vector ranking."""
+    identifiers = list(
+        dict.fromkeys(
+            identifier.upper()
+            for identifier in identifiers
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*", identifier)
+        )
+    )
+    if not identifiers or k <= 0:
+        return []
+    patterns = [rf"(^|[^[:alnum:]_]){identifier}([^[:alnum:]_]|$)" for identifier in identifiers]
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT id, source, page, chunk, text
+               FROM rag_chunks
+               WHERE kb_name = %s AND text ~* ANY(%s)
+               ORDER BY page NULLS FIRST, chunk
+               LIMIT %s""",
+            (kb_name, patterns, k),
+        ).fetchall()
+    return [{**row, "score": 1.0} for row in rows]
 
 
 def documents(kb_name: str) -> dict[str, int]:

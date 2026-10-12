@@ -1,8 +1,8 @@
 # TCS Knowledge Fabric
 
-Knowledge Graph + RAG studio: upload spreadsheets to build a reviewed Neo4j knowledge graph, or documents
-to build a RAG store (TurboQuant vector index), share them with colleagues, and chat with them. See `CLAUDE.md` for the
-spec and the decisions taken.
+Knowledge Graph + RAG studio: upload spreadsheets to build a reviewed Neo4j knowledge graph, documents
+to build a RAG store (TurboQuant vector index), or both to create a hybrid knowledge base. Share them
+with colleagues and chat with them. See `CLAUDE.md` for the spec and decisions taken.
 
 ## Run
 
@@ -78,6 +78,11 @@ UI use the LLM.
   Postgres table `rag_chunks`. There is no vector database server: the backend and the MCP server load the index
   files themselves, so both must use the same `VECTOR_DIR` (default `backend/data/vectors`; the `vectors` volume in
   Docker Compose). Search is cosine similarity, as before. Back up `VECTOR_DIR` together with Postgres.
+- **Hybrid knowledge bases** combine one reviewed spreadsheet graph with one or more indexed documents.
+  Graph extraction and document indexing use their existing pipelines; chat retrieves graph rows and document
+  passages concurrently and synthesizes one answer with source citations. If one retriever is unavailable, the
+  answer uses the remaining evidence and reports partial retrieval; if both fail, the request returns an error.
+  Add-data can update either or both stores in the same knowledge base.
 - **Access** (`app/kb.py`) is checked on the server for every request; `kb_access` is the audit trail.
 - **PII** (`kb_pii_fields`) is detected automatically for graph columns and RAG documents; raw values are
   never stored.
@@ -102,7 +107,7 @@ checks signature, issuer, audience (`MCP_AUDIENCE`), expiry and scopes, maps `pr
 | `whoami` | The signed-in user |
 | `list_knowledge_bases` | KBs the user owns or was granted |
 | `describe_knowledge_base` | Node types, properties (with PII flags), relationships, counts / RAG documents |
-| `ask_knowledge_base` | Question answered from the graph (generated Cypher) or the RAG store |
+| `ask_knowledge_base` | Question answered from a graph, RAG store, or both in a hybrid knowledge base |
 | `query_graph` | Read-only Cypher, scoped to the KB, capped at `MCP_MAX_ROWS` |
 | `search_documents` | Top passages from a RAG store |
 
@@ -130,12 +135,12 @@ what to fix. RAG errors name the failing service, e.g. "Vector store (TurboQuant
 All document knowledge bases use TurboQuant. If a knowledge base has no documents, upload them again through the
 application so they are chunked, embedded, and saved to its TurboQuant index.
 
-## RAGAS evaluation (TurboQuant RAG and graph responses)
+## RAGAS evaluation (TurboQuant RAG, graph, and hybrid responses)
 
-`python -m app.cli eval-ragas` measures how well either knowledge-base type answers. Every question in a test set is
-answered exactly as in the chat, then [RAGAS](https://docs.ragas.io) scores the answer. RAG knowledge bases use the
-TurboQuant index for retrieval; graph knowledge bases use the read-only, KB-scoped graph chat flow. ChromaDB is not
-used:
+`python -m app.cli eval-ragas` measures how well a knowledge base answers. Every question in a test set is answered
+as in chat, then [RAGAS](https://docs.ragas.io) scores it. RAG knowledge bases use the TurboQuant index; graph
+knowledge bases use the read-only, KB-scoped graph flow; hybrid knowledge bases use both retrievers and the same
+synthesis flow as chat. ChromaDB is not used:
 
 | Metric | What it checks (0-1, higher is better) | Needs a reference answer |
 |---|---|---|
@@ -215,7 +220,7 @@ regardless of case (`Sales_KG` and `sales_kg` can't both exist; Neo4j database n
 ## Langfuse tracing
 
 Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` (see `.env.example`) for the backend and
-the MCP server. Each user operation becomes one trace, named after the operation (`Chat`, `RAG Chat`,
+the MCP server. Each user operation becomes one trace, named after the operation (`Chat`, `RAG Chat`, `Hybrid Chat`,
 `KG Extraction`, `KG Build`, `Embedding`, `Add Data`, `MCP <tool>`), with the user, a session (web session, job or
 Keycloak session) and every model call, embedding, retrieval and Neo4j query inside it, including token usage.
 Spans are sent in the background every `LANGFUSE_FLUSH_INTERVAL` seconds, so a trace appears a few seconds after the

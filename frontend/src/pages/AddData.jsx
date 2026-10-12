@@ -49,7 +49,8 @@ export default function AddData() {
     setFiles(list);
     setCheck(null);
     setError(null);
-    if (current?.kb_type !== "graph") return;
+    if (!["graph", "hybrid"].includes(current?.kb_type)) return;
+    if (current.kb_type === "hybrid" && !/\.csv$|\.xlsx$|\.xlsm$/i.test(list[0]?.name || "")) return;
     const fd = new FormData();
     fd.append("file", list[0]);
     try {
@@ -118,6 +119,7 @@ export default function AddData() {
 
   const stats = detail?.stats;
   const isGraph = current?.kb_type === "graph";
+  const isHybrid = current?.kb_type === "hybrid";
   const matchedSheets = check?.sheets || [];
 
   return (
@@ -125,8 +127,9 @@ export default function AddData() {
       <div>
         <h1>Add data to an existing knowledge base</h1>
         <div className="sub">
-          {isGraph || !current ? "The schema already exists, so new rows are mapped automatically. There is no review step."
-                               : "New documents are chunked and added to the same vector store. There is no review step."}
+          {isHybrid ? "CSV/XLSX rows use the approved graph schema; documents are added to the existing vector store."
+            : isGraph || !current ? "The schema already exists, so new rows are mapped automatically. There is no review step."
+              : "New documents are chunked and added to the same vector store. There is no review step."}
         </div>
       </div>
       <div className="split" style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
@@ -135,7 +138,7 @@ export default function AddData() {
             <label className="lbl req" htmlFor="kb">Knowledge base</label>
             <select id="kb" className="inp" value={kb} onChange={(e) => { setParams({ kb: e.target.value }); setFiles([]); setCheck(null); setPull(null); }}>
               {(kbs || []).map((k) => (
-                <option key={k.kb_name} value={k.kb_name}>{k.kb_name} ({k.kb_type === "graph" ? "Graph" : "RAG"}, {k.role})</option>
+                <option key={k.kb_name} value={k.kb_name}>{k.kb_name} ({k.kb_type === "hybrid" ? "Hybrid" : k.kb_type === "graph" ? "Graph" : "RAG"}, {k.role})</option>
               ))}
             </select>
           </div>
@@ -144,14 +147,14 @@ export default function AddData() {
             <div style={{ background: "var(--bg)", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 12,
                           alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
               <TypeBadge type={current.kb_type} />
-              {stats && isGraph && <span>{stats.node_types} node types, {stats.relationship_types} relationship types, {stats.entities.toLocaleString()} entities</span>}
-              {stats && !isGraph && <span>{stats.documents} documents, {stats.chunks} chunks</span>}
+              {stats && (isGraph || isHybrid) && <span>{stats.node_types} node types, {stats.relationship_types} relationship types, {stats.entities.toLocaleString()} entities</span>}
+              {stats && (current.kb_type === "rag" || isHybrid) && <span>{stats.documents} documents, {stats.chunks} chunks</span>}
               <span className="muted">Last updated {formatDate(runs[0]?.finished_at || detail?.updated_at)}</span>
             </div>
           )}
           {current && (
-            <DropZone accept={isGraph ? ".csv,.xlsx,.xlsm" : ".pdf,.docx,.txt,.md"} multiple={!isGraph}
-                      title={isGraph ? "Drop new CSV or XLSX here" : "Drop PDF, DOCX or TXT here"}
+            <DropZone accept={isHybrid ? ".csv,.xlsx,.xlsm,.pdf,.docx,.txt,.md" : isGraph ? ".csv,.xlsx,.xlsm" : ".pdf,.docx,.txt,.md"} multiple={!isGraph}
+                      title={isHybrid ? "Drop a CSV/XLSX file and/or documents here" : isGraph ? "Drop new CSV or XLSX here" : "Drop PDF, DOCX or TXT here"}
                       hint={isGraph ? ". For RAG bases, drop PDF, DOCX or TXT instead." : ""} onFiles={choose} />
           )}
           {files.map((f) => (
@@ -166,7 +169,7 @@ export default function AddData() {
                   {check?.error && ` ${check.error}`}
                 </div>
               </div>
-              {isGraph && check && (check.matched ? <span className="badge">Schema matched</span> : <span className="badge r">No match</span>)}
+              {(isGraph || isHybrid) && check?.kind === "graph" && (check.matched ? <span className="badge">Schema matched</span> : <span className="badge r">No match</span>)}
             </div>
           ))}
           {current && (

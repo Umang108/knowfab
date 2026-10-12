@@ -40,7 +40,9 @@ WORKFLOW_NAMES = {
     "add_data": "Add Data",
     "chat": "Chat",
     "rag_chat": "RAG Chat",
+    "hybrid_chat": "Hybrid Chat",
     "rag_ingest": "Embedding",
+    "hybrid_ingest": "Hybrid Ingestion",
     "embedding": "Embedding",
 }
 

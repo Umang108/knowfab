@@ -76,7 +76,9 @@ export default function Workspace() {
       ? graphFile
         ? [graphFile]
         : []
-      : ragFiles;
+      : mode === "rag"
+        ? ragFiles
+        : [...(graphFile ? [graphFile] : []), ...ragFiles];
   const kbType = fromSource ? selection?.kbType || "graph" : mode;
   const useSource = () => {
     const sel = initialSelection(sources.kinds, connection);
@@ -94,7 +96,7 @@ export default function Workspace() {
     }));
   };
   const choose = (kind, list) => {
-    setMode(kind);
+    if (mode !== "hybrid") setMode(kind);
     setError(null);
     if (kind === "graph") setGraphFile(list[0]);
     else setRagFiles(list);
@@ -138,11 +140,8 @@ export default function Workspace() {
       fd.append("sub_domain", form.sub.trim());
       files.forEach((f) => fd.append("files", f));
       const r = await api("/kbs", { method: "POST", form: fd });
-      if (mode === "graph") {
-        navigate(`/kbs/${r.kb_name}/jobs/${r.job_id}`);
-      } else {
-        navigate(`/kbs/${r.kb_name}/jobs/${r.job_id}`);
-      }
+      const ragJob = r.rag_job_id ? `?ragJobId=${r.rag_job_id}` : "";
+      navigate(`/kbs/${r.kb_name}/jobs/${r.job_id}${ragJob}`);
     } catch (err) {
       setError(err);
     } finally {
@@ -172,11 +171,12 @@ export default function Workspace() {
 
   const action = (kb) => {
     let primary = null;
+    const hybridProgressQuery = kb.last_rag_job_id ? `?ragJobId=${kb.last_rag_job_id}` : "";
     if (kb.status === "awaiting_review" && kb.role === "owner")
       primary = (
         <button
           className="act"
-          onClick={() => navigate(`/kbs/${kb.kb_name}/review`)}
+          onClick={() => navigate(`/kbs/${kb.kb_name}/review${hybridProgressQuery}`)}
         >
           Review
         </button>
@@ -185,7 +185,7 @@ export default function Workspace() {
       primary = (
         <button
           className="act"
-          onClick={() => navigate(`/kbs/${kb.kb_name}/jobs/${kb.last_job_id}`)}
+          onClick={() => navigate(`/kbs/${kb.kb_name}/jobs/${kb.last_job_id}${hybridProgressQuery}`)}
         >
           View progress
         </button>
@@ -193,7 +193,7 @@ export default function Workspace() {
     else if (
       kb.status === "failed" &&
       kb.role === "owner" &&
-      kb.kb_type === "graph"
+      ["graph", "hybrid"].includes(kb.kb_type)
     )
       primary = (
         <button
@@ -203,7 +203,7 @@ export default function Workspace() {
               const r = await api(`/kbs/${kb.kb_name}/extract`, {
                 method: "POST",
               });
-              navigate(`/kbs/${kb.kb_name}/jobs/${r.job_id}`);
+              navigate(`/kbs/${kb.kb_name}/jobs/${r.job_id}${hybridProgressQuery}`);
             } catch (err) {
               setError(err);
             }
@@ -275,13 +275,13 @@ export default function Workspace() {
       >
         <div className="section">Upload data</div>
         <div
-          className={`card workspace-upload-card workspace-source-card${mode === "rag" ? " active" : ""}`}
+          className={`card workspace-upload-card workspace-source-card${mode === "rag" || mode === "hybrid" ? " active" : ""}${mode === "graph" ? " disabled" : ""}`}
           style={{
             padding: 18,
             display: "flex",
             flexDirection: "column",
             gap: 12,
-            border: mode === "rag" ? "2px solid var(--teal)" : undefined,
+            border: mode === "rag" || mode === "hybrid" ? "2px solid var(--teal)" : undefined,
           }}
         >
           <div
@@ -302,31 +302,32 @@ export default function Workspace() {
             accept={RAG_ACCEPT}
             multiple
             title="Drop files here"
+            disabled={mode === "graph"}
             onFiles={(l) => choose("rag", l)}
           />
           <div>
             {ragFiles.map((f) => (
               <div className="file" key={f.name}>
-                <span style={{ flexGrow: 1 }}>{f.name}</span>
+                <span className="workspace-upload-file-name" title={f.name}>{f.name}</span>
                 <span className="muted small">{formatSize(f.size)}</span>
               </div>
             ))}
             {ragRuns.runs.map((r) => (
               <div className="file" key={r.id}>
-                <span style={{ flexGrow: 1 }}>{r.source_file}</span>
+                <span className="workspace-upload-file-name" title={r.source_file}>{r.source_file}</span>
                 {runBadge(r)}
               </div>
             ))}
           </div>
         </div>
         <div
-          className={`card workspace-upload-card workspace-source-card${mode === "graph" ? " active" : ""}`}
+          className={`card workspace-upload-card workspace-source-card${mode === "graph" || mode === "hybrid" ? " active" : ""}${mode === "rag" ? " disabled" : ""}`}
           style={{
             padding: 18,
             display: "flex",
             flexDirection: "column",
             gap: 12,
-            border: mode === "graph" ? "2px solid var(--teal)" : undefined,
+            border: mode === "graph" || mode === "hybrid" ? "2px solid var(--teal)" : undefined,
           }}
         >
           <div
@@ -348,6 +349,7 @@ export default function Workspace() {
           <DropZone
             accept={GRAPH_ACCEPT}
             title="Drop CSV or XLSX here"
+            disabled={mode === "rag"}
             onFiles={(l) => choose("graph", l)}
           />
           {graphFile && (
@@ -360,7 +362,7 @@ export default function Workspace() {
               }}
             >
               <div style={{ flexGrow: 1 }}>
-                <div style={{ fontWeight: 600 }}>{graphFile.name}</div>
+                <div className="workspace-upload-file-name" title={graphFile.name} style={{ fontWeight: 600 }}>{graphFile.name}</div>
                 <div className="muted small">{formatSize(graphFile.size)}</div>
               </div>
               <button
@@ -467,19 +469,30 @@ export default function Workspace() {
             gap: 16,
           }}
         >
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {kbType === "graph" ? (
-              <span className="badge b">Knowledge graph</span>
-            ) : (
-              <span className="badge g">RAG store</span>
-            )}
-            <span className="muted small">
+          <div className="workspace-create-source-row">
+            <TypeBadge type={kbType} />
+            <span className="muted small workspace-create-source">
               {fromSource
                 ? `Source: ${connection?.name} (${connection?.label})`
                 : files.length
                   ? `Source: ${files.map((f) => f.name).join(", ")}`
                   : "Drop a file in the upload panel or pick a connected system to start"}
             </span>
+            {!fromSource && (
+              <label className="workspace-mode-select">
+                <span className="sr-only">Knowledge base mode</span>
+                <select
+                  className="inp"
+                  aria-label="Knowledge base mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                >
+                  <option value="graph">Graph only</option>
+                  <option value="rag">Documents only</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </label>
+            )}
           </div>
           {fromSource && selection && connection && (
             <DatasetPicker
@@ -491,9 +504,7 @@ export default function Workspace() {
           )}
           <div>
             <label className="lbl req" htmlFor="kbname">
-              {kbType === "graph"
-                ? "Knowledge graph name"
-                : "Knowledge base name"}
+              {kbType === "graph" ? "Knowledge graph name" : "Knowledge base name"}
             </label>
             <input
               id="kbname"
@@ -546,14 +557,16 @@ export default function Workspace() {
                 busy ||
                 (fromSource
                   ? !selection || !datasetsPayload(selection).length
-                  : !files.length)
+                  : !files.length || (mode === "hybrid" && (!graphFile || !ragFiles.length)))
               }
             >
               {busy
                 ? fromSource
                   ? "Starting…"
                   : "Uploading…"
-                : kbType === "graph"
+                : kbType === "hybrid"
+                  ? "Create hybrid knowledge base"
+                  : kbType === "graph"
                   ? fromSource
                     ? "Pull and extract graph"
                     : "Create and extract graph"

@@ -39,6 +39,7 @@ export function TopBar() {
 }
 
 export function TypeBadge({ type }) {
+  if (type === "hybrid") return <span className="badge w">Hybrid</span>;
   return type === "graph" ? <span className="badge b">Graph</span> : <span className="badge g">RAG</span>;
 }
 
@@ -55,27 +56,29 @@ export function StatusText({ kb }) {
   return <span>{text}</span>;
 }
 
-export function DropZone({ accept, multiple, onFiles, title, hint }) {
+export function DropZone({ accept, multiple, onFiles, title, hint, disabled = false }) {
   const input = useRef(null);
   const [over, setOver] = useState(false);
   const pick = (list) => {
+    if (disabled) return;
     const files = Array.from(list || []);
     if (files.length) onFiles(multiple ? files : [files[0]]);
   };
   return (
     <div
-      className={`drop${over ? " over" : ""}`}
+      className={`drop${over ? " over" : ""}${disabled ? " disabled" : ""}`}
       role="button"
-      tabIndex={0}
-      onClick={() => input.current.click()}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current.click()}
-      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      onClick={() => !disabled && input.current.click()}
+      onKeyDown={(e) => !disabled && (e.key === "Enter" || e.key === " ") && input.current.click()}
+      onDragOver={(e) => { e.preventDefault(); if (!disabled) setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files); }}
     >
       <div style={{ fontWeight: 600 }}>{title}</div>
-      <div className="muted">or <span style={{ color: "var(--teal)", fontWeight: 600 }}>browse</span>{hint}</div>
-      <input ref={input} type="file" hidden accept={accept} multiple={multiple}
+      <div className="muted">{disabled ? "Unavailable for this knowledge base mode" : <>or <span style={{ color: "var(--teal)", fontWeight: 600 }}>browse</span>{hint}</>}</div>
+      <input ref={input} type="file" hidden accept={accept} multiple={multiple} disabled={disabled}
              onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
     </div>
   );

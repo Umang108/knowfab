@@ -1,6 +1,8 @@
-python -m app.cli eval-ragas --kb Knowledge_Fabric_Test_Dataset_1000_Rows_Ground_Truth_kg --testset eval\testsets\Knowledge_Fabric_RAGAS_Complex_Questions.csv
+python -m app.cli eval-ragas --kb 
+ITSM_Dataset_800_Rows_V2_kg
+ --testset eval\testsets\ITSM_RAGAS_20.csv
 
-
+python -m app.cli eval-ragas --kb Knowledge_Fabric_Hybrid_RAG_Test_Document_rag12 --testset eval\testsets\Complex_30.csv
 
 python -m app.cli eval-ragas --kb northstar_rag_test_handbook_10_pages_rag --testset eval\testsets\northstar_ragas_evaluation.csv
 

@@ -17,24 +17,47 @@ from app.observability import observe_span
 log = logging.getLogger(__name__)
 
 SUPPORTED = (".pdf", ".docx", ".txt", ".md")
+_IDENTIFIER = re.compile(r"(?<![\w])[A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*(?![\w])")
 
 
 class DocumentError(ValueError):
     pass
 
 
+def identifier_tokens(text: str) -> list[str]:
+    """Return distinct alphanumeric identifiers that include at least one digit."""
+    return list(dict.fromkeys(match.upper() for match in _IDENTIFIER.findall(text)))
+
+
 # ------------------------------------------------------------------ parsing
 def _strip_repeated_lines(pages: list[str]) -> list[str]:
-    """Drop headers/footers: lines (ignoring digits) that repeat on most pages."""
+    """Drop repeated page furniture without treating changing record values as headers."""
     if len(pages) < 2:
         return pages
 
-    def norm(line: str) -> str:
-        return re.sub(r"\d+", "#", line.strip())
+    def norm(line: str) -> str | None:
+        text = line.strip()
+        if not text:
+            return None
+        if re.fullmatch(r"(?:page\s*)?\d+(?:\s+(?:of|/)\s*\d+)?", text, re.I):
+            return re.sub(r"\d+", "#", text.lower())
+        if re.match(r"^[^:]{1,80}:\s*\S", text):
+            return None
+        return text
 
-    counts = Counter(n for p in pages for n in {norm(line) for line in p.splitlines() if line.strip()})
+    counts = Counter(
+        normalized
+        for page in pages
+        for normalized in {norm(line) for line in page.splitlines() if line.strip()}
+        if normalized is not None
+    )
     repeated = {line for line, c in counts.items() if c >= max(2, 0.6 * len(pages))}
-    return ["\n".join(line for line in p.splitlines() if norm(line) not in repeated) for p in pages]
+    return [
+        "\n".join(
+            line for line in page.splitlines() if (normalized := norm(line)) is None or normalized not in repeated
+        )
+        for page in pages
+    ]
 
 
 def extract_text(path: Path, filename: str) -> list[tuple[int | None, str]]:
@@ -187,6 +210,12 @@ def retrieve(kb_name: str, question: str, k: int | None = None) -> list[dict]:
     if k is None:
         k = get_settings().rag_retrieval_top_k
     with observe_span("TurboQuant Retrieval", {"knowledge_base": kb_name, "top_k": k}):
+        identifiers = identifier_tokens(question)
+        if identifiers:
+            return _store(
+                "looking up exact identifiers",
+                lambda: vectorstore.search_exact(kb_name, identifiers, k),
+            )
         if _store("opening the index", lambda: vectorstore.count(kb_name)) == 0:
             return []
         vector = _embed(lambda: get_embeddings().embed_query(question))

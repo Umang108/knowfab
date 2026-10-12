@@ -4,10 +4,9 @@
     python -m app.cli eval-ragas --kb retail_policies_rag --testset eval/testsets/retail_policies_rag.csv
     python -m app.cli eval-ragas --kb retail_supply_chain_kg --testset my_graph_questions.csv
 
-For every question in the test set the app answers exactly as it does in the chat (TurboQuant retrieval for RAG
-or the read-only, KB-scoped graph flow), then RAGAS (https://docs.ragas.io) scores the answer, using the app's own
-model as the judge unless
-RAGAS_JUDGE_MODEL names another one:
+For every question in the test set the app answers exactly as it does in the chat (TurboQuant retrieval for RAG,
+the read-only, KB-scoped graph flow, or both for hybrid), then RAGAS (https://docs.ragas.io) scores the answer,
+using the app's own model as the judge unless RAGAS_JUDGE_MODEL names another one:
 
   faithfulness         every claim in the answer is supported by the retrieved passages (no hallucination)
   answer_relevancy     the answer addresses the question
@@ -201,11 +200,11 @@ def _check_kb(kb_name: str) -> dict:
         raise EvalError(f"No knowledge base named {kb_name}. Available knowledge bases: {names}")
     if row["status"] != "ready":
         raise EvalError(f"{row['kb_name']} is {row['status']}, not ready for evaluation")
-    if row["kb_type"] == "rag" and not rag.documents(row["kb_name"]):
+    if row["kb_type"] in ("rag", "hybrid") and not rag.documents(row["kb_name"]):
         raise EvalError(
             f"{row['kb_name']} has no documents in the TurboQuant vector store; ingest the documents again"
         )
-    if row["kb_type"] == "graph" and not row["approved_schema"]:
+    if row["kb_type"] in ("graph", "hybrid") and not row["approved_schema"]:
         raise EvalError(f"{row['kb_name']} has no approved graph schema")
     return dict(row)
 
@@ -239,6 +238,18 @@ def answer(kb: dict, item: dict, user: str, session: str) -> dict:
         ):
             if kb["kb_type"] == "rag":
                 result = chat.rag_answer(kb_name, item["question"], [], include_contexts=True)
+            elif kb["kb_type"] == "hybrid":
+                from app.graphstore import GraphStore
+
+                result = chat.hybrid_answer(
+                    GraphStore(kb_name),
+                    kb["approved_schema"],
+                    kb["approved_at"],
+                    kb_name,
+                    item["question"],
+                    [],
+                    include_contexts=True,
+                )
             else:
                 from app.graphstore import GraphStore
 
@@ -258,10 +269,17 @@ def answer(kb: dict, item: dict, user: str, session: str) -> dict:
     return {
         **item,
         "answer": result.get("answer", ""),
-        "contexts": result.get("contexts", []) if kb["kb_type"] == "rag" else _graph_context(result),
+        "contexts": (
+            result.get("contexts", [])
+            if kb["kb_type"] in ("rag", "hybrid")
+            else _graph_context(result)
+        ),
         "sources": (
-            [{"source": s["source"], "page": s["page"], "score": s["score"]} for s in result.get("sources", [])]
-            if kb["kb_type"] == "rag"
+            [
+                {k: s[k] for k in ("kind", "source", "page", "score") if k in s}
+                for s in result.get("sources", [])
+            ]
+            if kb["kb_type"] in ("rag", "hybrid")
             else [{"cypher": result.get("cypher", ""), "path": result.get("path", [])}]
         ),
         "kb_type": kb["kb_type"],
@@ -543,9 +561,11 @@ def run(
             "judge_model": model,
             "judge_embedding_model": embed_model,
             "top_k": s.rag_retrieval_top_k,
-            "retrieval_backend": (
-                f"TurboQuant {s.turboquant_bits}-bit" if kb["kb_type"] == "rag" else "Neo4j read-only graph"
-            ),
+            "retrieval_backend": {
+                "rag": f"TurboQuant {s.turboquant_bits}-bit",
+                "graph": "Neo4j read-only graph",
+                "hybrid": f"Neo4j read-only graph + TurboQuant {s.turboquant_bits}-bit",
+            }[kb["kb_type"]],
             "evaluation_type": kb["kb_type"],
             "guardrail_mask_pii": s.guardrail_mask_pii,
             "guardrail_min_relevance": s.guardrail_min_relevance,

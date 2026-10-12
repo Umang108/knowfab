@@ -72,6 +72,23 @@ def test_store_search_replace_and_delete(name, hashed):
     assert not vectorstore.index_path(name).exists()
 
 
+def test_identifier_queries_return_only_exact_matching_chunks(name, hashed):
+    rag.store_chunks(
+        name,
+        "incidents.pdf",
+        [
+            {"text": "Incident INC2026000019. Status: Resolved.", "page": 19},
+            {"text": "Incident INC2026000620. Status: In Progress.", "page": 620},
+        ],
+    )
+
+    hits = rag.retrieve(name, "What is the status of incident INC2026000019?", k=6)
+    assert len(hits) == 1
+    assert "INC2026000019" in hits[0]["text"]
+    assert hits[0]["score"] == 1.0
+    assert rag.retrieve(name, "What is the status of incident INC2026999999?", k=6) == []
+
+
 def test_scores_are_cosine_similarity(name):
     rng = np.random.default_rng(1)
     vectors = rng.standard_normal((50, 384)).astype(np.float32) * 7  # not normalised: the store normalises

@@ -29,7 +29,7 @@ def _warn_empty_rag() -> None:
     try:
         with get_conn() as conn:
             rows = conn.execute(
-                """SELECT c.kb_name FROM kb_catalog c WHERE c.kb_type = 'rag' AND c.status = 'ready'
+                """SELECT c.kb_name FROM kb_catalog c WHERE c.kb_type IN ('rag', 'hybrid') AND c.status = 'ready'
                    AND NOT EXISTS (SELECT 1 FROM rag_chunks r WHERE r.kb_name = c.kb_name)"""
             ).fetchall()
     except Exception:  # noqa: BLE001 - startup should not fail for a diagnostic hint
